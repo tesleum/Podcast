@@ -15,7 +15,8 @@ import {
   CircularProgress,
   Paper,
   Alert,
-  Fade
+  Fade,
+  Slider
 } from '@mui/material';
 import {
   KeyboardVoice as KeyboardVoiceIcon,
@@ -32,9 +33,18 @@ import {
   Info as InfoIcon,
   Translate as TranslateIcon,
   GraphicEq as GraphicEqIcon,
-  RestartAlt as RestartAltIcon
+  RestartAlt as RestartAltIcon,
+  ContentCut as ContentCutIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'motion/react';
+
+// Helper to format seconds to time string (m:ss.x)
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 10);
+  return `${m}:${s < 10 ? '0' : ''}${s}.${ms}`;
+}
 
 // WAV File Creation Helper (Maintains audio download capability)
 function createWAV(pcm16Array: Int16Array, sampleRate: number) {
@@ -130,6 +140,19 @@ export default function App() {
   const [rewriteTone, setRewriteTone] = useState<'informal' | 'formal' | 'promotional' | 'friendly'>('informal');
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [copied, setCopied] = useState(false);
+
+  // Trimming & caching states
+  const [rawPcmData, setRawPcmData] = useState<Int16Array | null>(null);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const [trimRange, setTrimRange] = useState<[number, number]>([0, 0]);
+  const [generatedText, setGeneratedText] = useState<string>('');
+
+  const handleTrimChange = (event: Event | React.SyntheticEvent | any, newValue: number | number[]) => {
+    setTrimRange(newValue as [number, number]);
+    if (isPlaying) {
+      stopAudio();
+    }
+  };
   
   useEffect(() => {
     localStorage.setItem('solana-gold-script', text);
@@ -202,10 +225,56 @@ export default function App() {
   const handleGenerateAndPlay = async () => {
     if (!text.trim()) return;
     
+    // Support instant local playback if text matches generatedText and we have the PCM data
+    if (rawPcmData && text === generatedText) {
+      setIsPlaying(true);
+      setError(null);
+      stopAudio();
+      
+      try {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        }
+        
+        if (audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume();
+        }
+
+        const audioBuffer = audioContextRef.current.createBuffer(1, rawPcmData.length, 24000);
+        const channelData = audioBuffer.getChannelData(0);
+        for (let i = 0; i < rawPcmData.length; i++) {
+          channelData[i] = rawPcmData[i] / 32768.0;
+        }
+
+        const sourceNode = audioContextRef.current.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.playbackRate.value = playbackSpeed;
+        sourceNode.connect(audioContextRef.current.destination);
+        
+        sourceNode.onended = () => {
+          setIsPlaying(false);
+        };
+
+        sourceNodeRef.current = sourceNode;
+        
+        // Respect the selected trim range on play!
+        const playOffset = trimRange[0];
+        const playDuration = trimRange[1] - trimRange[0];
+        sourceNode.start(0, playOffset, playDuration);
+      } catch (err: any) {
+        console.error(err);
+        setError('خطایی در پخش محلی صدا رخ داد.');
+        setIsPlaying(false);
+      }
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     stopAudio();
     setAudioBlob(null);
+    setRawPcmData(null);
+    setAudioDuration(0);
 
     try {
       const response = await fetch('/api/tts', {
@@ -241,6 +310,12 @@ export default function App() {
 
       // Decode PCM (16-bit little-endian) to AudioBuffer
       const int16Array = new Int16Array(bytes.buffer);
+      setRawPcmData(int16Array);
+      setGeneratedText(text);
+      
+      const duration = int16Array.length / 24000;
+      setAudioDuration(duration);
+      setTrimRange([0, duration]);
       
       // Create WAV blob for download
       const wavBlob = createWAV(int16Array, 24000);
@@ -262,7 +337,9 @@ export default function App() {
       };
 
       sourceNodeRef.current = sourceNode;
-      sourceNode.start();
+      
+      // Since it's a new generation, play the full audio range
+      sourceNode.start(0, 0, duration);
       setIsPlaying(true);
 
     } catch (err: any) {
@@ -274,11 +351,34 @@ export default function App() {
   };
 
   const handleDownload = () => {
-    if (!audioBlob) return;
-    const url = URL.createObjectURL(audioBlob);
+    if (!rawPcmData) {
+      if (!audioBlob) return;
+      const url = URL.createObjectURL(audioBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'gold_voice_audio.wav';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    // Slice raw PCM data based on selected trimRange
+    const startSample = Math.floor(trimRange[0] * 24000);
+    const endSample = Math.floor(trimRange[1] * 24000);
+    const trimmedPcm = rawPcmData.slice(startSample, endSample);
+    
+    const trimmedWavBlob = createWAV(trimmedPcm, 24000);
+    const url = URL.createObjectURL(trimmedWavBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'gold_voice_audio.wav';
+    
+    // Format descriptive file name with trimmed start and end
+    const startStr = trimRange[0].toFixed(1).replace('.', '_');
+    const endStr = trimRange[1].toFixed(1).replace('.', '_');
+    a.download = `gold_voice_trimmed_${startStr}s_to_${endStr}s.wav`;
+    
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -815,6 +915,124 @@ export default function App() {
                     </Box>
                   </Box>
 
+                  {/* Audio Trimming Section */}
+                  <Box sx={{ mb: 4 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <ContentCutIcon sx={{ fontSize: '1.25rem', color: '#f59e0b' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                        برش و زمان‌بندی فایل صوتی
+                      </Typography>
+                    </Box>
+
+                    {!rawPcmData ? (
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          p: 2,
+                          textAlign: 'center',
+                          borderRadius: 3,
+                          borderColor: 'divider',
+                          backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.01)',
+                          borderStyle: 'dashed'
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                          تنظیمات برش پس از تولید فایل صوتی فعال می‌شود.
+                        </Typography>
+                      </Paper>
+                    ) : (
+                      <Box sx={{ px: 1 }}>
+                        <Slider
+                          value={trimRange}
+                          onChange={handleTrimChange}
+                          valueLabelDisplay="auto"
+                          valueLabelFormat={(val) => `${val.toFixed(1)}s`}
+                          min={0}
+                          max={audioDuration}
+                          step={0.1}
+                          disableSwap
+                          sx={{
+                            color: '#f59e0b',
+                            height: 6,
+                            '& .MuiSlider-thumb': {
+                              width: 16,
+                              height: 16,
+                              backgroundColor: '#fff',
+                              border: '3px solid currentColor',
+                              '&:focus, &:hover, &.Mui-active, &.Mui-focusVisible': {
+                                boxShadow: 'inherit',
+                              },
+                              '&:before': {
+                                display: 'none',
+                              },
+                            },
+                            '& .MuiSlider-valueLabel': {
+                              lineHeight: 1.2,
+                              fontSize: 12,
+                              background: 'unset',
+                              padding: 0,
+                              width: 32,
+                              height: 32,
+                              borderRadius: '50% 50% 50% 0',
+                              backgroundColor: '#f59e0b',
+                              transformOrigin: 'bottom left',
+                              transform: 'translate(50%, -100%) rotate(-45deg) scale(0)',
+                              '&:before': { display: 'none' },
+                              '&.MuiSlider-valueLabelOpen': {
+                                transform: 'translate(50%, -100%) rotate(-45deg) scale(1)',
+                              },
+                              '& > *': {
+                                transform: 'rotate(45deg)',
+                              },
+                            },
+                            '& .MuiSlider-track': {
+                              border: 'none',
+                            },
+                            '& .MuiSlider-rail': {
+                              opacity: 0.28,
+                              backgroundColor: isDarkMode ? '#bfdbfe' : '#94a3b8',
+                            },
+                          }}
+                        />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1.5, px: 0.5 }}>
+                          <Box>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block' }}>
+                              شروع
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary', fontFamily: 'monospace' }}>
+                              {formatTime(trimRange[0])}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block' }}>
+                              مدت کل برش
+                            </Typography>
+                            <Chip
+                              label={`${(trimRange[1] - trimRange[0]).toFixed(1)} ثانیه`}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.7rem',
+                                fontWeight: 800,
+                                backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
+                                color: isDarkMode ? '#fbbf24' : '#b45309',
+                                mt: 0.2
+                              }}
+                            />
+                          </Box>
+                          <Box sx={{ textAlign: 'left' }}>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block' }}>
+                              پایان
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary', fontFamily: 'monospace' }}>
+                              {formatTime(trimRange[1])}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    )}
+                  </Box>
+
                   <Divider sx={{ my: 3 }} />
 
                   {/* AI Rewrite & Tone Modification Section */}
@@ -883,7 +1101,7 @@ export default function App() {
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                       {!isPlaying ? (
                         <Button
-                          variant="contained"
+                          variant={rawPcmData && text === generatedText ? "outlined" : "contained"}
                           color="primary"
                           fullWidth
                           onClick={handleGenerateAndPlay}
@@ -893,10 +1111,22 @@ export default function App() {
                             py: 1.8,
                             fontSize: '0.88rem',
                             fontWeight: 900,
-                            boxShadow: '0 4px 14px rgba(245, 158, 11, 0.3)'
+                            boxShadow: rawPcmData && text === generatedText ? 'none' : '0 4px 14px rgba(245, 158, 11, 0.3)',
+                            ...(rawPcmData && text === generatedText && {
+                              borderColor: 'primary.main',
+                              color: 'primary.main',
+                              '&:hover': {
+                                backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                                borderColor: 'primary.dark',
+                              }
+                            })
                           }}
                         >
-                          {isLoading ? 'در حال ساخت فایل صوتی...' : 'تولید و پخش صدای طبیعی'}
+                          {isLoading 
+                            ? 'در حال ساخت فایل صوتی...' 
+                            : (rawPcmData && text === generatedText) 
+                              ? 'پخش مجدد (بخش برش‌خورده)' 
+                              : 'تولید و پخش صدای طبیعی'}
                         </Button>
                       ) : (
                         <Button
@@ -931,7 +1161,9 @@ export default function App() {
                             fontWeight: 800
                           }}
                         >
-                          دانلود فایل صوتی (WAV)
+                          {rawPcmData && (trimRange[0] > 0 || trimRange[1] < audioDuration) 
+                            ? 'دانلود بخش برش‌خورده (WAV)' 
+                            : 'دانلود فایل صوتی کامل (WAV)'}
                         </Button>
                       )}
                     </Box>
