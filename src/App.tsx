@@ -1,5 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Square, Loader2, Volume2, Download, Wand2, Sun, Moon, Copy, Check, Sparkles, Languages, Sliders, Activity, Headphones, FileText } from 'lucide-react';
+import { 
+  Play, 
+  Square, 
+  Loader2, 
+  Volume2, 
+  Download, 
+  Wand2, 
+  Sun, 
+  Moon, 
+  Copy, 
+  Check, 
+  Sparkles, 
+  Languages, 
+  Sliders, 
+  Activity, 
+  Headphones, 
+  FileText,
+  Mic,
+  AudioLines,
+  SlidersHorizontal,
+  Info,
+  RefreshCw,
+  Share2
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 function createWAV(pcm16Array: Int16Array, sampleRate: number) {
@@ -47,23 +70,23 @@ function createWAV(pcm16Array: Int16Array, sampleRate: number) {
   return new Blob([view], { type: 'audio/wav' });
 }
 
-// Waveform visualizer component representing live audio playback
+// Beautiful voice waveform reflecting active speaker playback
 function VoiceWaveform({ isPlaying }: { isPlaying: boolean }) {
-  const bars = Array.from({ length: 15 }, (_, i) => i);
+  const bars = Array.from({ length: 18 }, (_, i) => i);
   return (
-    <div className="flex items-center gap-[3px] h-6 px-2 justify-center" dir="ltr">
+    <div className="flex items-center gap-[3px] h-6 px-1.5 justify-center" dir="ltr">
       {bars.map((bar) => {
-        const heightMultiplier = [0.4, 0.9, 0.6, 0.8, 0.5, 0.95, 0.7, 0.5, 0.85, 0.6, 0.9, 0.4, 0.75, 0.5, 0.3][bar];
+        const heightMultiplier = [0.3, 0.6, 0.9, 0.5, 0.8, 0.4, 0.95, 0.7, 0.5, 0.85, 0.6, 0.9, 0.3, 0.75, 0.5, 0.8, 0.4, 0.2][bar];
         return (
           <motion.div
             key={bar}
-            className="w-[3px] rounded-full bg-current"
+            className="w-[2.5px] rounded-full bg-amber-500"
             initial={{ height: 4 }}
             animate={{
               height: isPlaying ? [4, heightMultiplier * 24, 4] : 4
             }}
             transition={{
-              duration: isPlaying ? 0.8 + (bar % 3) * 0.15 : 0.2,
+              duration: isPlaying ? 0.7 + (bar % 4) * 0.12 : 0.2,
               repeat: isPlaying ? Infinity : 0,
               ease: "easeInOut"
             }}
@@ -260,32 +283,40 @@ export default function App() {
   ] as const;
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-zinc-50 text-zinc-900'} font-sans selection:bg-zinc-500/20 pb-32 sm:pb-12`} dir="rtl">
-      {/* Material Top App Bar */}
-      <header className={`sticky top-0 z-40 backdrop-blur-md border-b transition-colors duration-200 ${isDarkMode ? 'bg-zinc-950/80 border-zinc-900' : 'bg-white/80 border-zinc-200'} px-4 py-3 sm:px-6 lg:px-8`}>
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-zinc-50 text-zinc-900'} font-sans selection:bg-amber-500/20 pb-36 sm:pb-16`} dir="rtl">
+      
+      {/* Material 3 / MUI-style Navigation Header */}
+      <header className={`sticky top-0 z-40 backdrop-blur-md border-b transition-colors duration-200 ${isDarkMode ? 'bg-zinc-950/80 border-zinc-900' : 'bg-white/80 border-zinc-200/60'} px-4 py-3 sm:px-6 lg:px-8`}>
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full ${isDarkMode ? 'bg-zinc-900 text-zinc-100' : 'bg-zinc-100 text-zinc-900'}`}>
-              <Headphones className="w-5 h-5" />
+            {/* Logo representing Material Voice (Gold Mic) */}
+            <div className={`flex items-center justify-center w-11 h-11 rounded-full transition-all ${isDarkMode ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-amber-100 text-amber-700 shadow-sm'}`}>
+              <Mic className="w-5.5 h-5.5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight">گلد ویس</h1>
-              <p className={`text-[10px] font-medium tracking-wide ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>خوانشگر هوشمند متن</p>
+              <h1 className="text-lg font-bold tracking-tight flex items-center gap-1.5">
+                <span>گلد ویس</span>
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium tracking-wide ${isDarkMode ? 'bg-zinc-800 text-amber-400' : 'bg-amber-100/80 text-amber-800'}`}>هوشمند</span>
+              </h1>
+              <p className={`text-[10px] font-medium tracking-wide ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>خوانشگر صوتی با موتور هوش مصنوعی</p>
             </div>
           </div>
           
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`p-2.5 rounded-full transition-all border cursor-pointer ${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-zinc-100 border-zinc-800' : 'bg-white text-zinc-500 hover:text-zinc-900 border-zinc-200 shadow-xs'}`}
-            aria-label="تغییر پوسته"
-          >
-            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-2.5 rounded-full transition-all border cursor-pointer ${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-zinc-100 border-zinc-800' : 'bg-white text-zinc-500 hover:text-zinc-900 border-zinc-200 shadow-xs'}`}
+              aria-label="تغییر پوسته"
+            >
+              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-        {/* Intro Section - Compact for M3 */}
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        
+        {/* Banner with waveform state */}
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -294,21 +325,23 @@ export default function App() {
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full mb-2 border ${isDarkMode ? 'bg-zinc-900/60 text-zinc-400 border-zinc-800' : 'bg-zinc-100 text-zinc-600 border-zinc-200'}`}>
+              <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full mb-2 border ${isDarkMode ? 'bg-zinc-900/60 text-zinc-400 border-zinc-800' : 'bg-zinc-100 text-zinc-600 border-zinc-200'}`}>
                 <Sparkles className="w-3 h-3 text-amber-500" />
-                هوش مصنوعی فارسی
+                موتور هوش مصنوعی گوینده فارسی
               </span>
-              <h2 className={`text-2xl font-bold tracking-tight ${isDarkMode ? 'text-zinc-50' : 'text-zinc-950'}`}>
-                تبدیل آنلاین متن به صدای طبیعی
+              <h2 className={`text-2xl font-black tracking-tight ${isDarkMode ? 'text-zinc-50' : 'text-zinc-950'}`}>
+                تبدیل متن به صدای روان و دکلمه‌وار
               </h2>
             </div>
+            
+            {/* Waveform indicator */}
             {isPlaying && (
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${isDarkMode ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300' : 'bg-zinc-100 border-zinc-200 text-zinc-700'}`}>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${isDarkMode ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-700 shadow-xs'}`}>
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                 </span>
-                <span className="text-xs font-medium">درحال پخش</span>
+                <span className="text-xs font-semibold">درحال پخش صدا</span>
                 <VoiceWaveform isPlaying={isPlaying} />
               </div>
             )}
@@ -336,23 +369,23 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* Main Text Input Area - M3 Card */}
-          <div className={`lg:col-span-8 border rounded-3xl overflow-hidden transition-colors duration-200 ${isDarkMode ? 'bg-zinc-900/30 border-zinc-900' : 'bg-white border-zinc-200/80 shadow-xs'}`}>
-            <div className={`px-5 py-4 border-b flex justify-between items-center ${isDarkMode ? 'border-zinc-900 bg-zinc-900/40' : 'border-zinc-100 bg-zinc-50/50'}`}>
+          <div className={`lg:col-span-8 border rounded-[28px] overflow-hidden transition-all duration-200 ${isDarkMode ? 'bg-zinc-900/30 border-zinc-900' : 'bg-white border-zinc-200/80 shadow-xs'}`}>
+            <div className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? 'border-zinc-900 bg-zinc-900/40' : 'border-zinc-100 bg-zinc-50/50'}`}>
               <div className="flex items-center gap-2">
                 <FileText className={`w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`} />
-                <span className={`text-xs font-semibold tracking-wider font-mono ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                  ویرایشگر متن
+                <span className={`text-xs font-bold tracking-wider font-mono ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                  ویرایشگر متن خوانشگر
                 </span>
               </div>
               
               <button
                 onClick={handleCopyText}
                 disabled={!text}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border cursor-pointer ${
                   copied
                     ? isDarkMode
                       ? 'bg-zinc-900 border-zinc-800 text-emerald-400'
-                      : 'bg-zinc-100 border-zinc-200 text-emerald-700'
+                      : 'bg-zinc-100 border-zinc-200 text-emerald-700 font-bold'
                     : isDarkMode
                     ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
                     : 'bg-white hover:bg-zinc-50 text-zinc-600 border-zinc-200 shadow-xs'
@@ -363,25 +396,26 @@ export default function App() {
               </button>
             </div>
             
-            <div className="p-5">
+            <div className="p-6">
               <label htmlFor="script" className="sr-only">متن خوانش</label>
               <textarea
                 id="script"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 dir="rtl"
-                className={`w-full min-h-[320px] lg:min-h-[400px] border-0 rounded-2xl p-2 leading-relaxed resize-none focus:outline-none focus:ring-0 transition-all font-sans text-base ${isDarkMode ? 'bg-transparent text-zinc-100 placeholder:text-zinc-700' : 'bg-transparent text-zinc-900 placeholder:text-zinc-400'}`}
-                placeholder="متن خود را اینجا بنویسید یا بچسبانید..."
+                className={`w-full min-h-[320px] lg:min-h-[380px] border-0 rounded-2xl p-1.5 leading-relaxed resize-none focus:outline-none focus:ring-0 transition-all font-sans text-base ${isDarkMode ? 'bg-transparent text-zinc-100 placeholder:text-zinc-700' : 'bg-transparent text-zinc-900 placeholder:text-zinc-400'}`}
+                placeholder="متن خود را اینجا بنویسید یا بچسبانید تا با صدای گوینده طبیعی شبیه‌سازی شود..."
               />
             </div>
 
-            {/* Editor Bottom Stats */}
-            <div className={`px-5 py-3 border-t flex flex-wrap gap-x-4 gap-y-2 justify-between text-xs font-medium ${isDarkMode ? 'border-zinc-900 text-zinc-500' : 'border-zinc-100 text-zinc-400'}`}>
+            {/* Editor Bottom Stats & Actions */}
+            <div className={`px-6 py-4 border-t flex flex-wrap gap-x-4 gap-y-2 justify-between text-xs font-medium ${isDarkMode ? 'border-zinc-900 text-zinc-500' : 'border-zinc-100 text-zinc-400'}`}>
               <div className="flex gap-4">
-                <span>کاراکتر: <strong className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>{charCount}</strong></span>
-                <span>کلمات: <strong className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>{wordCount}</strong></span>
+                <span>تعداد کاراکتر: <strong className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>{charCount}</strong></span>
+                <span>تعداد کلمات: <strong className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>{wordCount}</strong></span>
               </div>
-              <div>
+              <div className="flex items-center gap-1">
+                <Info className="w-3.5 h-3.5 text-zinc-500" />
                 <span>زمان حدودی خواندن: <strong className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>{estimatedReadTime} دقیقه</strong></span>
               </div>
             </div>
@@ -389,45 +423,45 @@ export default function App() {
 
           {/* Sidebar Settings Panel - M3 Card */}
           <div className="lg:col-span-4 flex flex-col gap-6">
-            <div className={`rounded-3xl p-6 border transition-all duration-200 ${isDarkMode ? 'bg-zinc-900/30 border-zinc-900' : 'bg-white border-zinc-200 shadow-xs'}`}>
+            <div className={`rounded-[28px] p-6 border transition-all duration-200 ${isDarkMode ? 'bg-zinc-900/30 border-zinc-900' : 'bg-white border-zinc-200 shadow-xs'}`}>
               
               {/* Voice Segmented Control M3 */}
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-3">
-                  <Volume2 className={`w-4 h-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`} />
-                  <h3 className={`text-xs font-semibold uppercase font-mono tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                    انتخاب گوینده (صدا)
+                  <Mic className={`w-4 h-4 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`} />
+                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                    انتخاب صدای گوینده (صدا پیشه)
                   </h3>
                 </div>
                 
-                <div className={`grid grid-cols-2 gap-1.5 p-1 rounded-full border ${isDarkMode ? 'bg-zinc-950/60 border-zinc-800' : 'bg-zinc-100 border-zinc-200'}`}>
+                <div className={`grid grid-cols-2 gap-1.5 p-1 rounded-full border ${isDarkMode ? 'bg-zinc-950/60 border-zinc-800' : 'bg-zinc-100 border-zinc-200/80'}`}>
                   <button
                     onClick={() => setVoice('female')}
-                    className={`py-2 text-xs font-semibold rounded-full transition-all cursor-pointer ${
+                    className={`py-2 px-1 text-xs font-bold rounded-full transition-all cursor-pointer ${
                       voice === 'female'
                         ? isDarkMode
-                          ? 'bg-zinc-100 text-zinc-950 shadow-sm font-bold'
-                          : 'bg-zinc-950 text-zinc-50 shadow-sm font-bold'
+                          ? 'bg-amber-400 text-zinc-950 shadow-md font-black'
+                          : 'bg-zinc-950 text-zinc-50 shadow-md font-black'
                         : isDarkMode
-                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40'
                         : 'text-zinc-600 hover:text-zinc-800 hover:bg-zinc-200/50'
                     }`}
                   >
-                    زن ایرانی
+                    زن ایرانی (طبیعی)
                   </button>
                   <button
                     onClick={() => setVoice('male')}
-                    className={`py-2 text-xs font-semibold rounded-full transition-all cursor-pointer ${
+                    className={`py-2 px-1 text-xs font-bold rounded-full transition-all cursor-pointer ${
                       voice === 'male'
                         ? isDarkMode
-                          ? 'bg-zinc-100 text-zinc-950 shadow-sm font-bold'
-                          : 'bg-zinc-950 text-zinc-50 shadow-sm font-bold'
+                          ? 'bg-amber-400 text-zinc-950 shadow-md font-black'
+                          : 'bg-zinc-950 text-zinc-50 shadow-md font-black'
                         : isDarkMode
-                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40'
                         : 'text-zinc-600 hover:text-zinc-800 hover:bg-zinc-200/50'
                     }`}
                   >
-                    مرد ایرانی
+                    مرد ایرانی (طبیعی)
                   </button>
                 </div>
               </div>
@@ -435,9 +469,9 @@ export default function App() {
               {/* Speed Segmented Control M3 */}
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-3">
-                  <Sliders className={`w-4 h-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`} />
-                  <h4 className={`text-xs font-semibold font-mono uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                    سرعت پخش گویش
+                  <SlidersHorizontal className={`w-4 h-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`} />
+                  <h4 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                    تنظیم سرعت خواندن متن
                   </h4>
                 </div>
                 
@@ -446,17 +480,17 @@ export default function App() {
                     <button
                       key={speed}
                       onClick={() => setPlaybackSpeed(speed)}
-                      className={`py-2 text-xs font-semibold rounded-full transition-all cursor-pointer ${
+                      className={`py-2 text-xs font-bold rounded-full transition-all cursor-pointer ${
                         playbackSpeed === speed
                           ? isDarkMode
-                            ? 'bg-zinc-100 text-zinc-950 shadow-sm font-bold'
-                            : 'bg-zinc-950 text-zinc-50 shadow-sm font-bold'
+                            ? 'bg-zinc-100 text-zinc-950 shadow-sm font-black'
+                            : 'bg-zinc-950 text-zinc-50 shadow-sm font-black'
                           : isDarkMode
                           ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
                           : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200/50'
                       }`}
                     >
-                      {speed === 0.8 ? '۰.۸x (آرام)' : speed === 1.0 ? '۱.۰x (عادی)' : '۱.۲x (تند)'}
+                      {speed === 0.8 ? '۰.۸x' : speed === 1.0 ? '۱.۰x' : '۱.۲x'}
                     </button>
                   ))}
                 </div>
@@ -465,30 +499,30 @@ export default function App() {
               <hr className={`my-5 ${isDarkMode ? 'border-zinc-900' : 'border-zinc-100'}`} />
 
               {/* Rewrite Engine (M3 Chips selection) */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Languages className={`w-4 h-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`} />
-                  <h3 className={`text-xs font-semibold font-mono uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                    اصلاح و تغییر لحن هوشمند
+                  <Languages className={`w-4 h-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`} />
+                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                    بازنویسی و اصلاح لحن با هوش مصنوعی
                   </h3>
                 </div>
 
                 {/* Horizontal / wrap chips list */}
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="flex flex-wrap gap-1.5 mb-4">
                   {toneOptions.map((tone) => {
                     const isSelected = rewriteTone === tone.value;
                     return (
                       <button
                         key={tone.value}
                         onClick={() => setRewriteTone(tone.value)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border cursor-pointer flex items-center gap-1.5 ${
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
                           isSelected
                             ? isDarkMode
-                              ? 'bg-zinc-100 text-zinc-950 border-transparent font-bold'
-                              : 'bg-zinc-950 text-zinc-50 border-transparent font-bold'
+                              ? 'bg-amber-400 text-zinc-950 border-transparent font-black shadow-xs'
+                              : 'bg-zinc-950 text-zinc-50 border-transparent font-black shadow-xs'
                             : isDarkMode
                             ? 'bg-zinc-900/40 text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-zinc-200'
-                            : 'bg-zinc-100 text-zinc-600 border-zinc-200/60 hover:bg-zinc-200/60 hover:text-zinc-800'
+                            : 'bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-zinc-200/60 hover:text-zinc-800'
                         }`}
                       >
                         {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-current" />}
@@ -551,14 +585,14 @@ export default function App() {
                   {audioBlob && (
                     <button
                       onClick={handleDownload}
-                      className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full font-semibold text-xs transition-all border cursor-pointer ${
+                      className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full font-bold text-xs transition-all border cursor-pointer ${
                         isDarkMode 
                           ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800' 
                           : 'bg-white hover:bg-zinc-50 text-zinc-700 border-zinc-200 shadow-xs'
                       }`}
                     >
                       <Download className="w-4 h-4" />
-                      <span>دانلود فایل با فرمت WAV</span>
+                      <span>دانلود فایل صوتی (WAV)</span>
                     </button>
                   )}
                 </div>
@@ -567,7 +601,7 @@ export default function App() {
             </div>
 
             {/* AI Engine specifications footer */}
-            <div className={`p-4 rounded-3xl border text-center ${isDarkMode ? 'bg-zinc-900/10 border-zinc-900/60' : 'bg-zinc-100/50 border-zinc-200/50'}`}>
+            <div className={`p-4 rounded-[20px] border text-center ${isDarkMode ? 'bg-zinc-900/10 border-zinc-900/60' : 'bg-zinc-100/50 border-zinc-200/50'}`}>
               <div className="text-[11px] font-medium flex items-center justify-center gap-1.5">
                 <span className={isDarkMode ? 'text-zinc-600' : 'text-zinc-400'}>موتور پردازش صدا:</span>
                 <span className={`font-semibold font-mono ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`} dir="ltr">Gemini 3.1 Flash (TTS)</span>
@@ -581,7 +615,7 @@ export default function App() {
       {/* Floating Sticky Bottom Bar for Mobile & Tablet */}
       <div className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:hidden bg-gradient-to-t from-zinc-950/90 via-zinc-950/40 to-transparent pointer-events-none">
         <div className="max-w-md mx-auto pointer-events-auto">
-          <div className={`rounded-2xl p-3 border shadow-2xl flex items-center justify-between gap-3 ${
+          <div className={`rounded-3xl p-3 border shadow-2xl flex items-center justify-between gap-3 ${
             isDarkMode 
               ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100 backdrop-blur-md' 
               : 'bg-white/95 border-zinc-200 text-zinc-900 backdrop-blur-md'
@@ -592,18 +626,18 @@ export default function App() {
                   <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
                 ) : isPlaying ? (
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                   </span>
                 ) : (
-                  <Headphones className={`w-4 h-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`} />
+                  <Mic className={`w-4.5 h-4.5 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`} />
                 )}
               </div>
               <div className="flex flex-col">
                 <span className="text-[11px] font-bold">
-                  {isLoading ? 'در حال تبدیل...' : isPlaying ? 'در حال پخش...' : 'آماده پخش'}
+                  {isLoading ? 'در حال تولید...' : isPlaying ? 'در حال پخش...' : 'آماده پخش'}
                 </span>
-                <span className="text-[9px] text-zinc-500 font-medium">
+                <span className="text-[9px] text-zinc-500 font-bold">
                   {voice === 'female' ? 'زن ایرانی' : 'مرد ایرانی'} • {playbackSpeed}x
                 </span>
               </div>
@@ -628,7 +662,7 @@ export default function App() {
                   onClick={handleGenerateAndPlay}
                   disabled={isLoading || !text.trim()}
                   className={`flex items-center gap-2 py-2.5 px-4 rounded-full font-bold text-xs cursor-pointer shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
-                    isDarkMode ? 'bg-zinc-100 text-zinc-950 hover:bg-zinc-200' : 'bg-zinc-950 text-zinc-100 hover:bg-zinc-800'
+                    isDarkMode ? 'bg-amber-400 text-zinc-950 hover:bg-amber-300' : 'bg-zinc-950 text-zinc-100 hover:bg-zinc-800'
                   }`}
                 >
                   {isLoading ? (
@@ -654,4 +688,5 @@ export default function App() {
     </div>
   );
 }
+
 
