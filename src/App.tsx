@@ -1,30 +1,42 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
-  Play, 
-  Square, 
-  Loader2, 
-  Volume2, 
-  Download, 
-  Wand2, 
-  Sun, 
-  Moon, 
-  Copy, 
-  Check, 
-  Sparkles, 
-  Languages, 
-  Sliders, 
-  Activity, 
-  Headphones, 
-  FileText,
-  Mic,
-  AudioLines,
-  SlidersHorizontal,
-  Info,
-  RefreshCw,
-  Share2
-} from 'lucide-react';
+  createTheme, 
+  ThemeProvider, 
+  CssBaseline, 
+  Container, 
+  Box, 
+  Typography, 
+  Card, 
+  Button, 
+  IconButton, 
+  Chip, 
+  Tooltip, 
+  Divider, 
+  CircularProgress,
+  Paper,
+  Alert,
+  Fade
+} from '@mui/material';
+import {
+  KeyboardVoice as KeyboardVoiceIcon,
+  SettingsVoice as SettingsVoiceIcon,
+  PlayArrow as PlayArrowIcon,
+  Stop as StopIcon,
+  CloudDownload as CloudDownloadIcon,
+  AutoAwesome as AutoAwesomeIcon,
+  ContentCopy as ContentCopyIcon,
+  Check as CheckIcon,
+  LightMode as LightModeIcon,
+  DarkMode as DarkModeIcon,
+  Speed as SpeedIcon,
+  Info as InfoIcon,
+  Translate as TranslateIcon,
+  GraphicEq as GraphicEqIcon,
+  RestartAlt as RestartAltIcon
+} from '@mui/icons-material';
 import { motion, AnimatePresence } from 'motion/react';
 
+// WAV File Creation Helper (Maintains audio download capability)
 function createWAV(pcm16Array: Int16Array, sampleRate: number) {
   const buffer = new ArrayBuffer(44 + pcm16Array.length * 2);
   const view = new DataView(buffer);
@@ -70,17 +82,21 @@ function createWAV(pcm16Array: Int16Array, sampleRate: number) {
   return new Blob([view], { type: 'audio/wav' });
 }
 
-// Beautiful voice waveform reflecting active speaker playback
+// Beautiful voice waveform reflecting active speaker playback with framer-motion
 function VoiceWaveform({ isPlaying }: { isPlaying: boolean }) {
   const bars = Array.from({ length: 18 }, (_, i) => i);
   return (
-    <div className="flex items-center gap-[3px] h-6 px-1.5 justify-center" dir="ltr">
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: '3px', height: '24px', px: 1, justifyContent: 'center' }} dir="ltr">
       {bars.map((bar) => {
         const heightMultiplier = [0.3, 0.6, 0.9, 0.5, 0.8, 0.4, 0.95, 0.7, 0.5, 0.85, 0.6, 0.9, 0.3, 0.75, 0.5, 0.8, 0.4, 0.2][bar];
         return (
           <motion.div
             key={bar}
-            className="w-[2.5px] rounded-full bg-amber-500"
+            style={{
+              width: '2.5px',
+              borderRadius: '9999px',
+              backgroundColor: '#F59E0B'
+            }}
             initial={{ height: 4 }}
             animate={{
               height: isPlaying ? [4, heightMultiplier * 24, 4] : 4
@@ -93,7 +109,7 @@ function VoiceWaveform({ isPlaying }: { isPlaying: boolean }) {
           />
         );
       })}
-    </div>
+    </Box>
   );
 }
 
@@ -119,6 +135,9 @@ export default function App() {
     localStorage.setItem('solana-gold-script', text);
   }, [text]);
 
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+
   useEffect(() => {
     if (isPlaying && sourceNodeRef.current) {
       try {
@@ -135,9 +154,6 @@ export default function App() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
 
   const stopAudio = () => {
     if (sourceNodeRef.current) {
@@ -269,8 +285,12 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  const handleResetDefault = () => {
+    setText(defaultText);
+  };
+
   // Helper values for text statistics
-  const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+  const wordCount = useMemo(() => text.trim() === '' ? 0 : text.trim().split(/\s+/).length, [text]);
   const charCount = text.length;
   const estimatedReadTime = Math.ceil(wordCount / 130); // ~130 Persian words per minute
 
@@ -282,411 +302,796 @@ export default function App() {
     { value: 'friendly', label: 'دوستانه' }
   ] as const;
 
+  // Custom MUI Theme Engine following Material 3 / Modern design guidelines
+  const muiTheme = useMemo(() => {
+    return createTheme({
+      direction: 'rtl',
+      palette: {
+        mode: isDarkMode ? 'dark' : 'light',
+        primary: {
+          main: '#f59e0b', // Amber / Gold
+          light: '#fbbf24',
+          dark: '#d97706',
+          contrastText: isDarkMode ? '#0c0a09' : '#ffffff',
+        },
+        background: {
+          default: isDarkMode ? '#09090b' : '#f8fafc',
+          paper: isDarkMode ? '#18181b' : '#ffffff',
+        },
+        text: {
+          primary: isDarkMode ? '#f4f4f5' : '#0f172a',
+          secondary: isDarkMode ? '#a1a1aa' : '#475569',
+        },
+        divider: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+      },
+      typography: {
+        fontFamily: 'Vazirmatn, sans-serif',
+        allVariants: {
+          letterSpacing: '-0.01em',
+        },
+        h5: {
+          fontWeight: 800,
+        },
+        h6: {
+          fontWeight: 700,
+        },
+        body1: {
+          lineHeight: 1.75,
+        },
+        button: {
+          fontWeight: 700,
+          borderRadius: 24,
+        }
+      },
+      shape: {
+        borderRadius: 20,
+      },
+      components: {
+        MuiButton: {
+          styleOverrides: {
+            root: {
+              borderRadius: '9999px',
+              padding: '10px 24px',
+              boxShadow: 'none',
+              textTransform: 'none',
+              '&:hover': {
+                boxShadow: 'none',
+              },
+            },
+            contained: {
+              backgroundColor: '#f59e0b',
+              color: isDarkMode ? '#0c0a09' : '#ffffff',
+              '&:hover': {
+                backgroundColor: '#d97706',
+              }
+            },
+            outlined: {
+              borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
+              color: isDarkMode ? '#f4f4f5' : '#0f172a',
+              '&:hover': {
+                backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
+                borderColor: '#f59e0b',
+              }
+            }
+          },
+        },
+        MuiCard: {
+          styleOverrides: {
+            root: {
+              borderRadius: 24,
+              backgroundImage: 'none',
+              border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.05)',
+              boxShadow: isDarkMode ? '0 4px 30px rgba(0, 0, 0, 0.25)' : '0 4px 20px rgba(0, 0, 0, 0.03)',
+            }
+          }
+        },
+        MuiChip: {
+          styleOverrides: {
+            root: {
+              borderRadius: '12px',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+            }
+          }
+        }
+      }
+    });
+  }, [isDarkMode]);
+
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-zinc-50 text-zinc-900'} font-sans selection:bg-amber-500/20 pb-36 sm:pb-16`} dir="rtl">
-      
-      {/* Material 3 / MUI-style Navigation Header */}
-      <header className={`sticky top-0 z-40 backdrop-blur-md border-b transition-colors duration-200 ${isDarkMode ? 'bg-zinc-950/80 border-zinc-900' : 'bg-white/80 border-zinc-200/60'} px-4 py-3 sm:px-6 lg:px-8`}>
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Logo representing Material Voice (Gold Mic) */}
-            <div className={`flex items-center justify-center w-11 h-11 rounded-full transition-all ${isDarkMode ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-amber-100 text-amber-700 shadow-sm'}`}>
-              <Mic className="w-5.5 h-5.5" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight flex items-center gap-1.5">
-                <span>گلد ویس</span>
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium tracking-wide ${isDarkMode ? 'bg-zinc-800 text-amber-400' : 'bg-amber-100/80 text-amber-800'}`}>هوشمند</span>
-              </h1>
-              <p className={`text-[10px] font-medium tracking-wide ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>خوانشگر صوتی با موتور هوش مصنوعی</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className={`p-2.5 rounded-full transition-all border cursor-pointer ${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-zinc-100 border-zinc-800' : 'bg-white text-zinc-500 hover:text-zinc-900 border-zinc-200 shadow-xs'}`}
-              aria-label="تغییر پوسته"
-            >
-              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        
-        {/* Banner with waveform state */}
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="mb-8"
+    <ThemeProvider theme={muiTheme}>
+      <CssBaseline />
+      <Box 
+        sx={{ 
+          minHeight: '100vh', 
+          pb: { xs: 16, sm: 8 }, 
+          transition: 'background-color 0.3s ease',
+          direction: 'rtl' 
+        }}
+      >
+        {/* Modern Material App Bar Header */}
+        <Paper
+          elevation={0}
+          square
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 1100,
+            backdropFilter: 'blur(12px)',
+            backgroundColor: isDarkMode ? 'rgba(9, 9, 11, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+            borderBottom: 1,
+            borderColor: 'divider',
+            transition: 'background-color 0.3s ease, border-color 0.3s ease',
+          }}
         >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full mb-2 border ${isDarkMode ? 'bg-zinc-900/60 text-zinc-400 border-zinc-800' : 'bg-zinc-100 text-zinc-600 border-zinc-200'}`}>
-                <Sparkles className="w-3 h-3 text-amber-500" />
-                موتور هوش مصنوعی گوینده فارسی
-              </span>
-              <h2 className={`text-2xl font-black tracking-tight ${isDarkMode ? 'text-zinc-50' : 'text-zinc-950'}`}>
-                تبدیل متن به صدای روان و دکلمه‌وار
-              </h2>
-            </div>
-            
-            {/* Waveform indicator */}
-            {isPlaying && (
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${isDarkMode ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-700 shadow-xs'}`}>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                </span>
-                <span className="text-xs font-semibold">درحال پخش صدا</span>
-                <VoiceWaveform isPlaying={isPlaying} />
-              </div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Global Error Banner */}
-        <AnimatePresence>
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-6 overflow-hidden"
-            >
-              <div className="text-xs text-rose-500 bg-rose-500/5 p-4 rounded-2xl border border-rose-500/20 leading-relaxed flex items-center justify-between">
-                <span>{error}</span>
-                <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-600 font-bold px-2 cursor-pointer">×</button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Material 3 App Container */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* Main Text Input Area - M3 Card */}
-          <div className={`lg:col-span-8 border rounded-[28px] overflow-hidden transition-all duration-200 ${isDarkMode ? 'bg-zinc-900/30 border-zinc-900' : 'bg-white border-zinc-200/80 shadow-xs'}`}>
-            <div className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? 'border-zinc-900 bg-zinc-900/40' : 'border-zinc-100 bg-zinc-50/50'}`}>
-              <div className="flex items-center gap-2">
-                <FileText className={`w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`} />
-                <span className={`text-xs font-bold tracking-wider font-mono ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                  ویرایشگر متن خوانشگر
-                </span>
-              </div>
-              
-              <button
-                onClick={handleCopyText}
-                disabled={!text}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border cursor-pointer ${
-                  copied
-                    ? isDarkMode
-                      ? 'bg-zinc-900 border-zinc-800 text-emerald-400'
-                      : 'bg-zinc-100 border-zinc-200 text-emerald-700 font-bold'
-                    : isDarkMode
-                    ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
-                    : 'bg-white hover:bg-zinc-50 text-zinc-600 border-zinc-200 shadow-xs'
-                } disabled:opacity-40 disabled:cursor-not-allowed`}
+          <Container maxWidth="lg" sx={{ py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexGrow: 1 }}>
+              {/* Material Voice Icon (SettingsVoice / KeyboardVoice) inside a stylized golden container */}
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  width: 44, 
+                  height: 44, 
+                  borderRadius: '16px',
+                  backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.12)' : '#fef3c7',
+                  color: isDarkMode ? '#f59e0b' : '#b45309',
+                  border: isDarkMode ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(245, 158, 11, 0.1)',
+                  transition: 'all 0.3s'
+                }}
               >
-                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copied ? 'کپی شد!' : 'کپی متن'}</span>
-              </button>
-            </div>
-            
-            <div className="p-6">
-              <label htmlFor="script" className="sr-only">متن خوانش</label>
-              <textarea
-                id="script"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                dir="rtl"
-                className={`w-full min-h-[320px] lg:min-h-[380px] border-0 rounded-2xl p-1.5 leading-relaxed resize-none focus:outline-none focus:ring-0 transition-all font-sans text-base ${isDarkMode ? 'bg-transparent text-zinc-100 placeholder:text-zinc-700' : 'bg-transparent text-zinc-900 placeholder:text-zinc-400'}`}
-                placeholder="متن خود را اینجا بنویسید یا بچسبانید تا با صدای گوینده طبیعی شبیه‌سازی شود..."
-              />
-            </div>
+                <KeyboardVoiceIcon sx={{ fontSize: '1.6rem' }} />
+              </Box>
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="h6" component="h1" sx={{ fontSize: '1.15rem', fontWeight: 900, color: 'text.primary' }}>
+                    گلد ویس
+                  </Typography>
+                  <Chip 
+                    label="هوشمند" 
+                    size="small" 
+                    sx={{ 
+                      height: 18, 
+                      fontSize: '0.65rem', 
+                      fontWeight: 800,
+                      backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7', 
+                      color: isDarkMode ? '#fbbf24' : '#b45309',
+                      borderRadius: '6px'
+                    }} 
+                  />
+                </Box>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, display: { xs: 'none', sm: 'block' } }}>
+                  دستیار تبدیل متن به صوت با شبیه‌ساز واقعی صدای طبیعی
+                </Typography>
+              </Box>
+            </Box>
 
-            {/* Editor Bottom Stats & Actions */}
-            <div className={`px-6 py-4 border-t flex flex-wrap gap-x-4 gap-y-2 justify-between text-xs font-medium ${isDarkMode ? 'border-zinc-900 text-zinc-500' : 'border-zinc-100 text-zinc-400'}`}>
-              <div className="flex gap-4">
-                <span>تعداد کاراکتر: <strong className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>{charCount}</strong></span>
-                <span>تعداد کلمات: <strong className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>{wordCount}</strong></span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Info className="w-3.5 h-3.5 text-zinc-500" />
-                <span>زمان حدودی خواندن: <strong className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>{estimatedReadTime} دقیقه</strong></span>
-              </div>
-            </div>
-          </div>
-
-          {/* Sidebar Settings Panel - M3 Card */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            <div className={`rounded-[28px] p-6 border transition-all duration-200 ${isDarkMode ? 'bg-zinc-900/30 border-zinc-900' : 'bg-white border-zinc-200 shadow-xs'}`}>
-              
-              {/* Voice Segmented Control M3 */}
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <Mic className={`w-4 h-4 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`} />
-                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                    انتخاب صدای گوینده (صدا پیشه)
-                  </h3>
-                </div>
-                
-                <div className={`grid grid-cols-2 gap-1.5 p-1 rounded-full border ${isDarkMode ? 'bg-zinc-950/60 border-zinc-800' : 'bg-zinc-100 border-zinc-200/80'}`}>
-                  <button
-                    onClick={() => setVoice('female')}
-                    className={`py-2 px-1 text-xs font-bold rounded-full transition-all cursor-pointer ${
-                      voice === 'female'
-                        ? isDarkMode
-                          ? 'bg-amber-400 text-zinc-950 shadow-md font-black'
-                          : 'bg-zinc-950 text-zinc-50 shadow-md font-black'
-                        : isDarkMode
-                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40'
-                        : 'text-zinc-600 hover:text-zinc-800 hover:bg-zinc-200/50'
-                    }`}
-                  >
-                    زن ایرانی (طبیعی)
-                  </button>
-                  <button
-                    onClick={() => setVoice('male')}
-                    className={`py-2 px-1 text-xs font-bold rounded-full transition-all cursor-pointer ${
-                      voice === 'male'
-                        ? isDarkMode
-                          ? 'bg-amber-400 text-zinc-950 shadow-md font-black'
-                          : 'bg-zinc-950 text-zinc-50 shadow-md font-black'
-                        : isDarkMode
-                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40'
-                        : 'text-zinc-600 hover:text-zinc-800 hover:bg-zinc-200/50'
-                    }`}
-                  >
-                    مرد ایرانی (طبیعی)
-                  </button>
-                </div>
-              </div>
-
-              {/* Speed Segmented Control M3 */}
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <SlidersHorizontal className={`w-4 h-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`} />
-                  <h4 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                    تنظیم سرعت خواندن متن
-                  </h4>
-                </div>
-                
-                <div className={`grid grid-cols-3 gap-1.5 p-1 rounded-full border ${isDarkMode ? 'bg-zinc-950/60 border-zinc-800' : 'bg-zinc-100 border-zinc-200'}`}>
-                  {[0.8, 1.0, 1.2].map((speed) => (
-                    <button
-                      key={speed}
-                      onClick={() => setPlaybackSpeed(speed)}
-                      className={`py-2 text-xs font-bold rounded-full transition-all cursor-pointer ${
-                        playbackSpeed === speed
-                          ? isDarkMode
-                            ? 'bg-zinc-100 text-zinc-950 shadow-sm font-black'
-                            : 'bg-zinc-950 text-zinc-50 shadow-sm font-black'
-                          : isDarkMode
-                          ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
-                          : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200/50'
-                      }`}
-                    >
-                      {speed === 0.8 ? '۰.۸x' : speed === 1.0 ? '۱.۰x' : '۱.۲x'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <hr className={`my-5 ${isDarkMode ? 'border-zinc-900' : 'border-zinc-100'}`} />
-
-              {/* Rewrite Engine (M3 Chips selection) */}
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Languages className={`w-4 h-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`} />
-                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                    بازنویسی و اصلاح لحن با هوش مصنوعی
-                  </h3>
-                </div>
-
-                {/* Horizontal / wrap chips list */}
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {toneOptions.map((tone) => {
-                    const isSelected = rewriteTone === tone.value;
-                    return (
-                      <button
-                        key={tone.value}
-                        onClick={() => setRewriteTone(tone.value)}
-                        className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
-                          isSelected
-                            ? isDarkMode
-                              ? 'bg-amber-400 text-zinc-950 border-transparent font-black shadow-xs'
-                              : 'bg-zinc-950 text-zinc-50 border-transparent font-black shadow-xs'
-                            : isDarkMode
-                            ? 'bg-zinc-900/40 text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-zinc-200'
-                            : 'bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-zinc-200/60 hover:text-zinc-800'
-                        }`}
-                      >
-                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-current" />}
-                        {tone.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={handleRewrite}
-                  disabled={isRewriting || isLoading || !text.trim()}
-                  className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full font-bold text-xs transition-all border disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
-                    isDarkMode
-                      ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-100 border-zinc-800'
-                      : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border-transparent'
-                  }`}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Tooltip title={isDarkMode ? 'پوسته روشن' : 'پوسته تاریک'}>
+                <IconButton 
+                  onClick={() => setIsDarkMode(!isDarkMode)} 
+                  color="inherit"
+                  sx={{ 
+                    border: 1, 
+                    borderColor: 'divider', 
+                    p: 1.2, 
+                    borderRadius: '9999px',
+                    color: isDarkMode ? '#fbbf24' : '#475569',
+                    backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                    '&:hover': {
+                      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+                    }
+                  }}
                 >
-                  {isRewriting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Wand2 className="w-3.5 h-3.5 text-amber-500" />
-                  )}
-                  <span>{isRewriting ? 'در حال بازنویسی متن...' : 'بازنویسی با هوش مصنوعی'}</span>
-                </button>
-              </div>
+                  {isDarkMode ? <LightModeIcon sx={{ fontSize: '1.2rem' }} /> : <DarkModeIcon sx={{ fontSize: '1.2rem' }} />}
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Container>
+        </Paper>
 
-              {/* PC / Large Screen Play Actions */}
-              <div className="hidden sm:block">
-                <hr className={`my-5 ${isDarkMode ? 'border-zinc-900' : 'border-zinc-100'}`} />
-                
-                <div className="flex flex-col gap-3">
-                  {!isPlaying ? (
-                    <button
-                      onClick={handleGenerateAndPlay}
-                      disabled={isLoading || !text.trim()}
-                      className={`w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-full font-bold text-sm transition-all border disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
-                        isDarkMode
-                          ? 'bg-zinc-100 text-zinc-950 hover:bg-zinc-200 border-transparent shadow-lg'
-                          : 'bg-zinc-950 text-zinc-100 hover:bg-zinc-800 border-transparent shadow-md'
-                      }`}
+        <Container maxWidth="lg" sx={{ mt: { xs: 3, sm: 4 } }}>
+          {/* Top Banner and Waveform State Display */}
+          <Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }}>
+            <Box>
+              <Box 
+                sx={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: 1, 
+                  px: 2, 
+                  py: 0.6, 
+                  borderRadius: '9999px', 
+                  mb: 1.5, 
+                  border: 1, 
+                  borderColor: 'divider',
+                  backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.03)' : 'rgba(245, 158, 11, 0.05)'
+                }}
+              >
+                <AutoAwesomeIcon sx={{ fontSize: '0.9rem', color: '#f59e0b' }} />
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#f59e0b' }}>
+                  موتور قدرتمند هوش مصنوعی گوینده فارسی
+                </Typography>
+              </Box>
+              <Typography variant="h5" component="h2" sx={{ fontWeight: 900, color: 'text.primary' }}>
+                تبدیل متن به صدای روان و دکلمه‌وار
+              </Typography>
+            </Box>
+
+            {/* Active Waveform Panel */}
+            {isPlaying && (
+              <Fade in={isPlaying}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    px: 3,
+                    py: 1.2,
+                    borderRadius: '9999px',
+                    border: '1px solid',
+                    borderColor: 'primary.main',
+                    backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.05)' : 'rgba(245, 158, 11, 0.02)'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ position: 'relative', display: 'flex', height: 8, width: 8 }}>
+                      <Box className="animate-ping" sx={{ position: 'absolute', display: 'inline-flex', height: '100%', width: '100%', borderRadius: '50%', backgroundColor: 'primary.light', opacity: 0.75 }} />
+                      <Box sx={{ position: 'relative', display: 'inline-flex', borderRadius: '50%', height: 8, width: 8, backgroundColor: 'primary.main' }} />
+                    </Box>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                      درحال پخش صدا...
+                    </Typography>
+                  </Box>
+                  <VoiceWaveform isPlaying={isPlaying} />
+                </Paper>
+              </Fade>
+            )}
+          </Box>
+
+          {/* Global Alert Notification */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                style={{ marginBottom: '24px' }}
+              >
+                <Alert 
+                  severity="error" 
+                  onClose={() => setError(null)}
+                  sx={{ 
+                    borderRadius: 4, 
+                    fontSize: '0.85rem', 
+                    fontWeight: 600,
+                    boxShadow: 'none',
+                    direction: 'rtl'
+                  }}
+                >
+                  {error}
+                </Alert>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Core Layout Grid */}
+          <Box 
+            sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(12, 1fr)' }, 
+              gap: 3, 
+              alignItems: 'start' 
+            }}
+          >
+            
+            {/* Left Side: Text Editor Input Card */}
+            <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 8' } }}>
+              <Card>
+                {/* Header Actions for Text Editor */}
+                <Box 
+                  sx={{ 
+                    px: 3, 
+                    py: 2, 
+                    borderBottom: '1px solid', 
+                    borderColor: 'divider', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.01)'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <GraphicEqIcon sx={{ fontSize: '1.2rem', color: 'text.secondary' }} />
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.secondary' }}>
+                      ویرایشگر متن خوانشگر
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {text !== defaultText && (
+                      <Tooltip title="بازنشانی متن نمونه">
+                        <IconButton 
+                          onClick={handleResetDefault}
+                          size="small"
+                          sx={{ 
+                            border: 1, 
+                            borderColor: 'divider', 
+                            borderRadius: '9999px',
+                            p: 0.8,
+                            color: 'text.secondary'
+                          }}
+                        >
+                          <RestartAltIcon sx={{ fontSize: '1rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    
+                    <Button
+                      onClick={handleCopyText}
+                      disabled={!text}
+                      variant="outlined"
+                      size="small"
+                      startIcon={copied ? <CheckIcon sx={{ fontSize: '0.9rem' }} /> : <ContentCopyIcon sx={{ fontSize: '0.9rem' }} />}
+                      sx={{ 
+                        py: 0.6, 
+                        px: 2, 
+                        fontSize: '0.75rem', 
+                        fontWeight: 700,
+                        backgroundColor: copied ? (isDarkMode ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5') : 'transparent',
+                        borderColor: copied ? 'emerald.500' : 'divider',
+                        color: copied ? '#10b981' : 'text.primary',
+                        '&:hover': {
+                          borderColor: '#f59e0b'
+                        }
+                      }}
                     >
-                      {isLoading ? (
-                        <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                      {copied ? 'کپی شد!' : 'کپی متن'}
+                    </Button>
+                  </Box>
+                </Box>
+
+                {/* Main Textarea Area */}
+                <Box sx={{ p: 3 }}>
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    dir="rtl"
+                    placeholder="متن خود را اینجا بنویسید یا بچسبانید تا با صدای گوینده طبیعی شبیه‌سازی شود..."
+                    style={{
+                      width: '100%',
+                      minHeight: '360px',
+                      border: 'none',
+                      outline: 'none',
+                      resize: 'none',
+                      fontFamily: 'Vazirmatn, sans-serif',
+                      fontSize: '1rem',
+                      lineHeight: 1.8,
+                      backgroundColor: 'transparent',
+                      color: isDarkMode ? '#f4f4f5' : '#0f172a',
+                    }}
+                  />
+                </Box>
+
+                {/* Footer Statistics */}
+                <Box 
+                  sx={{ 
+                    px: 3, 
+                    py: 2, 
+                    borderTop: '1px solid', 
+                    borderColor: 'divider', 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: 3, 
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', gap: 3 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                      تعداد کاراکتر: <Box component="span" sx={{ color: 'text.primary', fontWeight: 800 }}>{charCount}</Box>
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                      تعداد کلمات: <Box component="span" sx={{ color: 'text.primary', fontWeight: 800 }}>{wordCount}</Box>
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                    <InfoIcon sx={{ fontSize: '0.95rem', color: 'text.secondary' }} />
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                      زمان حدودی خواندن: <Box component="span" sx={{ color: 'text.primary', fontWeight: 800 }}>{estimatedReadTime} دقیقه</Box>
+                    </Typography>
+                  </Box>
+                </Box>
+              </Card>
+            </Box>
+
+            {/* Right Side: Options and Tuning Card */}
+            <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 4' } }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <Card sx={{ p: 3 }}>
+                  
+                  {/* Speaker (Voice) Selector Section */}
+                  <Box sx={{ mb: 4 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <SettingsVoiceIcon sx={{ fontSize: '1.2rem', color: '#f59e0b' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                        انتخاب صدای گوینده (صدا پیشه)
+                      </Typography>
+                    </Box>
+
+                    {/* Styled Pill Segmented Switcher for Voice Choice */}
+                    <Box 
+                      sx={{ 
+                        display: 'flex', 
+                        p: 0.6, 
+                        borderRadius: '9999px', 
+                        border: '1px solid', 
+                        borderColor: 'divider',
+                        backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)'
+                      }}
+                    >
+                      <Button
+                        variant={voice === 'female' ? 'contained' : 'text'}
+                        onClick={() => setVoice('female')}
+                        fullWidth
+                        sx={{
+                          py: 1,
+                          fontSize: '0.78rem',
+                          borderRadius: '9999px',
+                          color: voice === 'female' ? (isDarkMode ? '#0c0a09' : '#ffffff') : 'text.secondary',
+                          backgroundColor: voice === 'female' ? '#f59e0b' : 'transparent',
+                          '&:hover': {
+                            backgroundColor: voice === 'female' ? '#d97706' : 'rgba(255, 255, 255, 0.05)',
+                          },
+                          fontWeight: 800
+                        }}
+                      >
+                        زن ایرانی (طبیعی)
+                      </Button>
+                      <Button
+                        variant={voice === 'male' ? 'contained' : 'text'}
+                        onClick={() => setVoice('male')}
+                        fullWidth
+                        sx={{
+                          py: 1,
+                          fontSize: '0.78rem',
+                          borderRadius: '9999px',
+                          color: voice === 'male' ? (isDarkMode ? '#0c0a09' : '#ffffff') : 'text.secondary',
+                          backgroundColor: voice === 'male' ? '#f59e0b' : 'transparent',
+                          '&:hover': {
+                            backgroundColor: voice === 'male' ? '#d97706' : 'rgba(255, 255, 255, 0.05)',
+                          },
+                          fontWeight: 800
+                        }}
+                      >
+                        مرد ایرانی (طبیعی)
+                      </Button>
+                    </Box>
+                  </Box>
+
+                  {/* Playback Speed Setting Section */}
+                  <Box sx={{ mb: 4 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <SpeedIcon sx={{ fontSize: '1.2rem', color: 'text.secondary' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                        تنظیم سرعت خواندن متن
+                      </Typography>
+                    </Box>
+
+                    {/* Styled Pill Segmented Switcher for Playback Speed */}
+                    <Box 
+                      sx={{ 
+                        display: 'flex', 
+                        p: 0.6, 
+                        borderRadius: '9999px', 
+                        border: '1px solid', 
+                        borderColor: 'divider',
+                        backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)'
+                      }}
+                    >
+                      {[0.8, 1.0, 1.2].map((speed) => (
+                        <Button
+                          key={speed}
+                          onClick={() => setPlaybackSpeed(speed)}
+                          variant={playbackSpeed === speed ? 'contained' : 'text'}
+                          fullWidth
+                          sx={{
+                            py: 1,
+                            fontSize: '0.78rem',
+                            borderRadius: '9999px',
+                            color: playbackSpeed === speed ? (isDarkMode ? '#0c0a09' : '#ffffff') : 'text.secondary',
+                            backgroundColor: playbackSpeed === speed ? 'text.primary' : 'transparent',
+                            '&:hover': {
+                              backgroundColor: playbackSpeed === speed ? 'text.secondary' : 'rgba(255, 255, 255, 0.05)',
+                            },
+                            fontWeight: 800
+                          }}
+                        >
+                          {speed === 0.8 ? '۰.۸x' : speed === 1.0 ? '۱.۰x' : '۱.۲x'}
+                        </Button>
+                      ))}
+                    </Box>
+                  </Box>
+
+                  <Divider sx={{ my: 3 }} />
+
+                  {/* AI Rewrite & Tone Modification Section */}
+                  <Box sx={{ mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <TranslateIcon sx={{ fontSize: '1.15rem', color: 'text.secondary' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                        بازنویسی و اصلاح لحن با هوش مصنوعی
+                      </Typography>
+                    </Box>
+
+                    {/* Choice Chips list */}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
+                      {toneOptions.map((tone) => {
+                        const isSelected = rewriteTone === tone.value;
+                        return (
+                          <Chip
+                            key={tone.value}
+                            label={tone.label}
+                            onClick={() => setRewriteTone(tone.value)}
+                            color={isSelected ? 'primary' : 'default'}
+                            variant={isSelected ? 'filled' : 'outlined'}
+                            sx={{
+                              py: 1.8,
+                              px: 0.6,
+                              borderRadius: '9999px',
+                              cursor: 'pointer',
+                              fontWeight: isSelected ? 800 : 500,
+                              borderColor: isSelected ? 'transparent' : 'divider',
+                              backgroundColor: isSelected 
+                                ? '#f59e0b' 
+                                : isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                              color: isSelected 
+                                ? (isDarkMode ? '#0c0a09' : '#ffffff') 
+                                : 'text.primary',
+                              '&:hover': {
+                                backgroundColor: isSelected ? '#d97706' : 'rgba(255, 255, 255, 0.08)'
+                              }
+                            }}
+                          />
+                        );
+                      })}
+                    </Box>
+
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      onClick={handleRewrite}
+                      disabled={isRewriting || isLoading || !text.trim()}
+                      startIcon={isRewriting ? <CircularProgress size={16} color="inherit" /> : <AutoAwesomeIcon sx={{ color: '#f59e0b' }} />}
+                      sx={{
+                        py: 1.5,
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.03)' : 'rgba(245, 158, 11, 0.02)'
+                      }}
+                    >
+                      {isRewriting ? 'در حال بازنویسی متن...' : 'بازنویسی با هوش مصنوعی'}
+                    </Button>
+                  </Box>
+
+                  {/* Desktop Playback Actions */}
+                  <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                    <Divider sx={{ my: 3 }} />
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {!isPlaying ? (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          fullWidth
+                          onClick={handleGenerateAndPlay}
+                          disabled={isLoading || !text.trim()}
+                          startIcon={isLoading ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon />}
+                          sx={{
+                            py: 1.8,
+                            fontSize: '0.88rem',
+                            fontWeight: 900,
+                            boxShadow: '0 4px 14px rgba(245, 158, 11, 0.3)'
+                          }}
+                        >
+                          {isLoading ? 'در حال ساخت فایل صوتی...' : 'تولید و پخش صدای طبیعی'}
+                        </Button>
                       ) : (
-                        <Play className="w-4.5 h-4.5 fill-current" />
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={stopAudio}
+                          startIcon={<StopIcon />}
+                          sx={{
+                            py: 1.8,
+                            fontSize: '0.88rem',
+                            fontWeight: 900,
+                            backgroundColor: '#e11d48',
+                            color: '#ffffff',
+                            '&:hover': {
+                              backgroundColor: '#be123c',
+                            }
+                          }}
+                        >
+                          توقف پخش صدا
+                        </Button>
                       )}
-                      <span>{isLoading ? 'در حال ساخت فایل صوتی...' : 'تولید و پخش صدای طبیعی'}</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={stopAudio}
-                      className="w-full flex items-center justify-center gap-2.5 bg-rose-600 hover:bg-rose-500 text-white py-3.5 px-5 rounded-full font-bold text-sm transition-all cursor-pointer shadow-md"
-                    >
-                      <Square className="w-4 h-4 fill-current" />
-                      <span>توقف پخش</span>
-                    </button>
-                  )}
 
-                  {audioBlob && (
-                    <button
-                      onClick={handleDownload}
-                      className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-full font-bold text-xs transition-all border cursor-pointer ${
-                        isDarkMode 
-                          ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800' 
-                          : 'bg-white hover:bg-zinc-50 text-zinc-700 border-zinc-200 shadow-xs'
-                      }`}
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>دانلود فایل صوتی (WAV)</span>
-                    </button>
-                  )}
-                </div>
-              </div>
+                      {audioBlob && (
+                        <Button
+                          variant="outlined"
+                          fullWidth
+                          onClick={handleDownload}
+                          startIcon={<CloudDownloadIcon />}
+                          sx={{
+                            py: 1.5,
+                            fontSize: '0.8rem',
+                            fontWeight: 800
+                          }}
+                        >
+                          دانلود فایل صوتی (WAV)
+                        </Button>
+                      )}
+                    </Box>
+                  </Box>
 
-            </div>
+                </Card>
 
-            {/* AI Engine specifications footer */}
-            <div className={`p-4 rounded-[20px] border text-center ${isDarkMode ? 'bg-zinc-900/10 border-zinc-900/60' : 'bg-zinc-100/50 border-zinc-200/50'}`}>
-              <div className="text-[11px] font-medium flex items-center justify-center gap-1.5">
-                <span className={isDarkMode ? 'text-zinc-600' : 'text-zinc-400'}>موتور پردازش صدا:</span>
-                <span className={`font-semibold font-mono ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`} dir="ltr">Gemini 3.1 Flash (TTS)</span>
-              </div>
-            </div>
+                {/* Model and processing metadata specs */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 5,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.01)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 1
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                    موتور شبیه‌ساز صوتی:
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 800, fontFamily: 'monospace' }} dir="ltr">
+                    Gemini 3.1 Flash (TTS)
+                  </Typography>
+                </Paper>
+              </Box>
+            </Box>
+          </Box>
+        </Container>
 
-          </div>
-        </div>
-      </main>
-
-      {/* Floating Sticky Bottom Bar for Mobile & Tablet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:hidden bg-gradient-to-t from-zinc-950/90 via-zinc-950/40 to-transparent pointer-events-none">
-        <div className="max-w-md mx-auto pointer-events-auto">
-          <div className={`rounded-3xl p-3 border shadow-2xl flex items-center justify-between gap-3 ${
-            isDarkMode 
-              ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100 backdrop-blur-md' 
-              : 'bg-white/95 border-zinc-200 text-zinc-900 backdrop-blur-md'
-          }`}>
-            <div className="flex items-center gap-2.5">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+        {/* Floating Sticky Bottom Bar for Mobile Device viewports */}
+        <Box 
+          sx={{ 
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1200,
+            p: 2,
+            background: isDarkMode 
+              ? 'linear-gradient(to top, rgba(9, 9, 11, 0.95) 60%, rgba(9, 9, 11, 0))' 
+              : 'linear-gradient(to top, rgba(248, 250, 252, 0.95) 60%, rgba(248, 250, 252, 0))',
+            display: { xs: 'block', sm: 'none' },
+            pointerEvents: 'none'
+          }}
+        >
+          <Paper
+            elevation={8}
+            sx={{
+              maxWidth: 480,
+              mx: 'auto',
+              p: 1.5,
+              borderRadius: '24px',
+              border: '1px solid',
+              borderColor: 'divider',
+              backdropFilter: 'blur(16px)',
+              backgroundColor: isDarkMode ? 'rgba(24, 24, 27, 0.92)' : 'rgba(255, 255, 255, 0.92)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              pointerEvents: 'auto'
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box 
+                sx={{ 
+                  width: 38, 
+                  height: 38, 
+                  borderRadius: '12px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                  color: '#f59e0b'
+                }}
+              >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
+                  <CircularProgress size={16} color="inherit" />
                 ) : isPlaying ? (
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                  </span>
+                  <Box sx={{ display: 'flex', height: 6, width: 6, borderRadius: '50%', backgroundColor: 'primary.main', position: 'relative' }}>
+                    <Box className="animate-ping" sx={{ position: 'absolute', height: '100%', width: '100%', borderRadius: '50%', backgroundColor: 'primary.light' }} />
+                  </Box>
                 ) : (
-                  <Mic className={`w-4.5 h-4.5 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`} />
+                  <KeyboardVoiceIcon sx={{ fontSize: '1.25rem' }} />
                 )}
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[11px] font-bold">
-                  {isLoading ? 'در حال تولید...' : isPlaying ? 'در حال پخش...' : 'آماده پخش'}
-                </span>
-                <span className="text-[9px] text-zinc-500 font-bold">
+              </Box>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 800, fontSize: '0.78rem', color: 'text.primary' }}>
+                  {isLoading ? 'در حال تولید صوتی...' : isPlaying ? 'در حال پخش...' : 'آماده خواندن'}
+                </Typography>
+                <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary', fontWeight: 600 }}>
                   {voice === 'female' ? 'زن ایرانی' : 'مرد ایرانی'} • {playbackSpeed}x
-                </span>
-              </div>
-            </div>
+                </Typography>
+              </Box>
+            </Box>
 
-            <div className="flex items-center gap-1.5">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {audioBlob && (
-                <button
+                <IconButton
                   onClick={handleDownload}
-                  className={`p-2.5 rounded-full border cursor-pointer ${
-                    isDarkMode ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200'
-                  }`}
+                  size="small"
+                  sx={{
+                    p: 1,
+                    border: 1,
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    borderRadius: '9999px'
+                  }}
                   title="دانلود فایل صوتی"
                 >
-                  <Download className="w-4 h-4" />
-                </button>
+                  <CloudDownloadIcon sx={{ fontSize: '1.15rem' }} />
+                </IconButton>
               )}
 
-              {/* Main Play/Stop Button FAB on mobile */}
+              {/* Main Play FAB on mobile */}
               {!isPlaying ? (
-                <button
+                <Button
+                  variant="contained"
                   onClick={handleGenerateAndPlay}
                   disabled={isLoading || !text.trim()}
-                  className={`flex items-center gap-2 py-2.5 px-4 rounded-full font-bold text-xs cursor-pointer shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
-                    isDarkMode ? 'bg-amber-400 text-zinc-950 hover:bg-amber-300' : 'bg-zinc-950 text-zinc-100 hover:bg-zinc-800'
-                  }`}
+                  startIcon={isLoading ? <CircularProgress size={14} color="inherit" /> : <PlayArrowIcon sx={{ fontSize: '1.1rem' }} />}
+                  sx={{
+                    py: 0.8,
+                    px: 2.2,
+                    fontSize: '0.75rem',
+                    fontWeight: 900,
+                    boxShadow: '0 4px 10px rgba(245, 158, 11, 0.2)'
+                  }}
                 >
-                  {isLoading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                  )}
-                  <span>بشنو</span>
-                </button>
+                  بشنو
+                </Button>
               ) : (
-                <button
+                <Button
+                  variant="contained"
                   onClick={stopAudio}
-                  className="flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white py-2.5 px-4 rounded-full font-bold text-xs cursor-pointer shadow-lg transition-all"
+                  startIcon={<StopIcon sx={{ fontSize: '1.1rem' }} />}
+                  sx={{
+                    py: 0.8,
+                    px: 2.2,
+                    fontSize: '0.75rem',
+                    fontWeight: 900,
+                    backgroundColor: '#e11d48',
+                    color: '#ffffff',
+                    '&:hover': {
+                      backgroundColor: '#be123c',
+                    }
+                  }}
                 >
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>توقف</span>
-                </button>
+                  توقف
+                </Button>
               )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+            </Box>
+          </Paper>
+        </Box>
+      </Box>
+    </ThemeProvider>
   );
 }
-
-
