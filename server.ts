@@ -22,13 +22,14 @@ async function startServer() {
   // API route for TTS
   app.post("/api/tts", async (req, res) => {
     try {
-      const { text } = req.body;
+      const { text, voice = 'female' } = req.body;
       if (!text) {
         return res.status(400).json({ error: "Text is required" });
       }
 
-      // We use Aoede voice for a different presenter.
-      const promptText = `Say the following Persian text naturally and normally:\n\n${text}`;
+      const voiceName = voice === 'male' ? "Puck" : "Aoede";
+      
+      const promptText = `Say the following Persian text naturally and normally as a ${voice === 'male' ? 'male' : 'female'} Iranian presenter:\n\n${text}`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-tts-preview",
@@ -37,7 +38,7 @@ async function startServer() {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: "Aoede" },
+              prebuiltVoiceConfig: { voiceName: voiceName },
             },
           },
         },
@@ -59,16 +60,25 @@ async function startServer() {
   // API route for rewrite
   app.post("/api/rewrite", async (req, res) => {
     try {
-      const { text } = req.body;
+      const { text, tone = 'informal' } = req.body;
       if (!text) {
         return res.status(400).json({ error: "Text is required" });
+      }
+
+      let promptInstructions = "Rewrite the following Persian text to be very natural, conversational, and informal (عامیانه), exactly as if a friendly Iranian presenter is speaking it in a YouTube video. Keep the core meaning, but make it sound spoken, engaging, and less formal.";
+      if (tone === 'formal') {
+         promptInstructions = "Rewrite the following Persian text to be very formal, professional, and official (رسمی). Keep the core meaning, but make it sound like an official news anchor or corporate presentation.";
+      } else if (tone === 'promotional') {
+         promptInstructions = "Rewrite the following Persian text to be promotional, enthusiastic, and persuasive (تبلیغاتی). Make it sound like a compelling advertisement or marketing pitch.";
+      } else if (tone === 'friendly') {
+         promptInstructions = "Rewrite the following Persian text to be warm, friendly, and approachable (دوستانه). Make it sound like talking to a good friend.";
       }
 
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: [{
           role: "user",
-          parts: [{ text: `Rewrite the following Persian text to be very natural, conversational, and informal (عامیانه), exactly as if a friendly Iranian presenter is speaking it in a YouTube video. Keep the core meaning, but make it sound spoken, engaging, and less formal.\n\nText:\n${text}` }]
+          parts: [{ text: `${promptInstructions}\n\nText:\n${text}` }]
         }],
       });
 
