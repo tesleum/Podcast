@@ -50,7 +50,10 @@ function createWAV(pcm16Array: Int16Array, sampleRate: number) {
 const defaultText = ``;
 
 export default function App() {
-  const [text, setText] = useState(defaultText);
+  const [text, setText] = useState(() => {
+    const saved = localStorage.getItem('solana-gold-script');
+    return saved !== null ? saved : defaultText;
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isRewriting, setIsRewriting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -60,6 +63,10 @@ export default function App() {
   const [voice, setVoice] = useState<'female' | 'male'>('female');
   const [rewriteTone, setRewriteTone] = useState<'informal' | 'formal' | 'promotional' | 'friendly'>('informal');
   
+  useEffect(() => {
+    localStorage.setItem('solana-gold-script', text);
+  }, [text]);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
 
