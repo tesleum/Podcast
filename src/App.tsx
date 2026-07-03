@@ -217,55 +217,63 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0f172a] text-slate-200' : 'bg-slate-50 text-slate-800'} py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-indigo-500/30`} dir="rtl">
+    <div className={`min-h-screen transition-colors duration-200 ${isDarkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-zinc-50 text-zinc-900'} py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-zinc-500/20`} dir="rtl">
       <div className="max-w-4xl mx-auto relative">
         <button
           onClick={() => setIsDarkMode(!isDarkMode)}
-          className={`absolute top-0 left-0 p-2 rounded-full transition-colors ${isDarkMode ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-white text-slate-500 hover:text-slate-900 shadow-sm border border-slate-200'}`}
+          className={`absolute top-0 left-0 p-2 rounded-lg transition-colors border ${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-zinc-100 border-zinc-800' : 'bg-white text-zinc-500 hover:text-zinc-900 border-zinc-200 shadow-sm'}`}
           aria-label="تغییر پوسته"
         >
           {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
 
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
           className="text-center mb-10"
         >
-          <div className={`inline-flex items-center justify-center p-3 rounded-full mb-4 border ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : 'bg-indigo-100 border-indigo-200 text-indigo-600'}`}>
-            <Volume2 className="w-8 h-8" />
+          <div className={`inline-flex items-center justify-center p-3 rounded-lg mb-4 border ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-800 shadow-sm'}`}>
+            <Volume2 className="w-7 h-7" />
           </div>
-          <h1 className={`text-3xl font-medium tracking-tight mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+          <h1 className={`text-3xl font-semibold tracking-tight mb-2 ${isDarkMode ? 'text-zinc-50' : 'text-zinc-950'}`}>
             خوانشگر هوشمند Gold Voice
           </h1>
-          <p className={`max-w-2xl mx-auto ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            متن خود را وارد کنید، لحن آن را با هوش مصنوعی بازنویسی کنید و با گوینده دلخواه بشنوید.
+          <p className={`max-w-xl mx-auto text-sm ${isDarkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+            متن خود را بنویسید، با هوش مصنوعی بازنویسی کنید و با صدای طبیعی گویندگان ایرانی پخش کنید.
           </p>
         </motion.div>
 
-        <div className={`backdrop-blur-sm border rounded-2xl shadow-2xl overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white/80 border-slate-200'}`}>
-          <div className={`p-1 border-b ${isDarkMode ? 'border-slate-700/50 bg-slate-800/80' : 'border-slate-200 bg-slate-100/80'}`}>
-            <div className="flex space-x-2 space-x-reverse px-3 py-2">
-              <div className="w-3 h-3 rounded-full bg-rose-500/80"></div>
-              <div className="w-3 h-3 rounded-full bg-amber-500/80"></div>
-              <div className="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+        <div className={`border rounded-xl overflow-hidden transition-colors duration-200 ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-white border-zinc-200 shadow-sm'}`}>
+          <div className={`px-4 py-3 border-b flex justify-between items-center ${isDarkMode ? 'border-zinc-800 bg-zinc-900/60' : 'border-zinc-100 bg-zinc-50/50'}`}>
+            <div className="flex space-x-1.5 space-x-reverse">
+              <div className={`w-2 h-2 rounded-full ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-300'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-300'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${isDarkMode ? 'bg-zinc-700' : 'bg-zinc-300'}`}></div>
+            </div>
+            <div className={`text-xs font-mono tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+              GOLDVOICE // TTS ENGINE
             </div>
           </div>
           
           <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8">
-            <div className="flex-1 flex flex-col gap-2">
-              <div className="flex justify-between items-center px-1">
-                <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>متن ارائه</span>
+            <div className="flex-1 flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <span className={`text-xs font-semibold uppercase tracking-wider font-mono ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                  متن ورودی
+                </span>
                 <button
                   onClick={handleCopyText}
                   disabled={!text}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
                     copied
-                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      ? isDarkMode
+                        ? 'bg-zinc-900 border-zinc-800 text-emerald-400'
+                        : 'bg-zinc-50 border-zinc-200 text-emerald-600'
                       : isDarkMode
-                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-                      : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 shadow-sm'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
+                      : 'bg-white hover:bg-zinc-50 text-zinc-600 border-zinc-200 shadow-xs'
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copied ? 'کپی شد!' : 'کپی متن'}</span>
@@ -277,17 +285,19 @@ export default function App() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 dir="rtl"
-                className={`w-full h-[500px] border rounded-xl p-5 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-sans text-lg ${isDarkMode ? 'bg-slate-900/50 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-300 text-slate-800'}`}
-                placeholder="متن ارائه را اینجا وارد کنید..."
+                className={`w-full h-[450px] border rounded-lg p-5 leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-zinc-400 focus:border-zinc-400 transition-all font-sans text-base ${isDarkMode ? 'bg-zinc-950/40 border-zinc-800 text-zinc-100 placeholder:text-zinc-700' : 'bg-zinc-50/50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400'}`}
+                placeholder="متن خود را اینجا وارد کنید..."
               />
             </div>
             
             <div className="md:w-64 flex flex-col gap-4">
-              <div className={`rounded-xl p-5 border transition-colors duration-300 ${isDarkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                <h3 className={`text-sm font-medium uppercase tracking-wider mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>کنترل‌های پخش</h3>
+              <div className={`rounded-lg p-5 border transition-colors duration-200 ${isDarkMode ? 'bg-zinc-950/30 border-zinc-800/80' : 'bg-zinc-50/40 border-zinc-200'}`}>
+                <h3 className={`text-xs font-semibold uppercase font-mono tracking-wider mb-4 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                  کنترل‌های پخش
+                </h3>
                 
                 {error && (
-                  <div className="mb-4 text-sm text-rose-500 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">
+                  <div className="mb-4 text-xs text-rose-500 bg-rose-500/5 p-3 rounded-lg border border-rose-500/20 leading-relaxed">
                     {error}
                   </div>
                 )}
@@ -296,21 +306,25 @@ export default function App() {
                   <button
                     onClick={handleGenerateAndPlay}
                     disabled={isLoading || !text.trim()}
-                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white py-3 px-4 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed group mb-3"
+                    className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-medium text-sm transition-all border disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
+                      isDarkMode
+                        ? 'bg-zinc-100 text-zinc-950 hover:bg-zinc-200 border-transparent'
+                        : 'bg-zinc-950 text-zinc-100 hover:bg-zinc-800 border-transparent'
+                    }`}
                   >
                     {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Play className="w-5 h-5 fill-current" />
+                      <Play className="w-4 h-4 fill-current" />
                     )}
-                    <span>{isLoading ? 'در حال تولید...' : 'پخش صدا'}</span>
+                    <span>{isLoading ? 'در حال تولید...' : 'تولید و پخش صدا'}</span>
                   </button>
                 ) : (
                   <button
                     onClick={stopAudio}
-                    className="w-full flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 text-white py-3 px-4 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 focus:ring-offset-slate-900 mb-3"
+                    className="w-full flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-500 text-white py-2.5 px-4 rounded-lg font-medium text-sm transition-all cursor-pointer"
                   >
-                    <Square className="w-5 h-5 fill-current" />
+                    <Square className="w-4 h-4 fill-current" />
                     <span>توقف پخش</span>
                   </button>
                 )}
@@ -318,28 +332,34 @@ export default function App() {
                 {audioBlob && (
                   <button
                     onClick={handleDownload}
-                    className={`w-full flex items-center justify-center gap-2 text-white py-3 px-4 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 mb-3 ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600 focus:ring-slate-500 focus:ring-offset-slate-900' : 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-400 focus:ring-offset-white'}`}
+                    className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-medium text-sm transition-all border mt-3 cursor-pointer ${
+                      isDarkMode 
+                        ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800' 
+                        : 'bg-white hover:bg-zinc-50 text-zinc-700 border-zinc-200'
+                    }`}
                   >
-                    <Download className="w-5 h-5" />
-                    <span>دانلود صدا</span>
+                    <Download className="w-4 h-4" />
+                    <span>دانلود فایل صوتی</span>
                   </button>
                 )}
 
-                <div className="mt-3 mb-1">
-                  <h4 className={`text-xs font-medium uppercase tracking-wider mb-2 ${isDarkMode ? 'text-slate-400/80' : 'text-slate-500'}`}>سرعت پخش</h4>
-                  <div className={`grid grid-cols-3 gap-1 p-1 rounded-lg border ${isDarkMode ? 'bg-slate-900/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+                <div className="mt-4">
+                  <h4 className={`text-xs font-semibold font-mono uppercase tracking-wider mb-2.5 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    سرعت پخش
+                  </h4>
+                  <div className={`grid grid-cols-3 gap-1 p-1 rounded-lg border ${isDarkMode ? 'bg-zinc-950/60 border-zinc-800' : 'bg-zinc-100 border-zinc-200'}`}>
                     {[0.8, 1.0, 1.2].map((speed) => (
                       <button
                         key={speed}
                         onClick={() => setPlaybackSpeed(speed)}
-                        className={`py-1.5 text-xs font-medium rounded-md transition-all ${
+                        className={`py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
                           playbackSpeed === speed
                             ? isDarkMode
-                              ? 'bg-indigo-600 text-white shadow-sm'
-                              : 'bg-indigo-500 text-white shadow-sm'
+                              ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-xs'
+                              : 'bg-white text-zinc-900 border border-zinc-200 shadow-xs'
                             : isDarkMode
-                            ? 'text-slate-400 hover:text-slate-200'
-                            : 'text-slate-500 hover:text-slate-700'
+                            ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                            : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
                         }`}
                       >
                         {speed === 0.8 ? '۰.۸x' : speed === 1.0 ? '۱.۰x' : '۱.۲x'}
@@ -348,48 +368,52 @@ export default function App() {
                   </div>
                 </div>
                 
-                <hr className={`my-4 ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} />
+                <hr className={`my-4 ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`} />
                 
-                <h3 className={`text-sm font-medium uppercase tracking-wider mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>تنظیمات صدا</h3>
+                <h3 className={`text-xs font-semibold font-mono uppercase tracking-wider mb-2.5 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                  گوینده و صدا
+                </h3>
                 
-                <div className={`flex p-1 rounded-lg border mb-6 ${isDarkMode ? 'bg-slate-900/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+                <div className={`grid grid-cols-2 gap-1 p-1 rounded-lg border mb-5 ${isDarkMode ? 'bg-zinc-950/60 border-zinc-800' : 'bg-zinc-100 border-zinc-200'}`}>
                   <button
                     onClick={() => setVoice('female')}
-                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                    className={`py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
                       voice === 'female'
                         ? isDarkMode
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'bg-indigo-500 text-white shadow-sm'
+                          ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-xs'
+                          : 'bg-white text-zinc-900 border border-zinc-200 shadow-xs'
                         : isDarkMode
-                        ? 'text-slate-400 hover:text-slate-200'
-                        : 'text-slate-500 hover:text-slate-700'
+                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                        : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
                     }`}
                   >
                     زن ایرانی
                   </button>
                   <button
                     onClick={() => setVoice('male')}
-                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                    className={`py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
                       voice === 'male'
                         ? isDarkMode
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'bg-indigo-500 text-white shadow-sm'
+                          ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-xs'
+                          : 'bg-white text-zinc-900 border border-zinc-200 shadow-xs'
                         : isDarkMode
-                        ? 'text-slate-400 hover:text-slate-200'
-                        : 'text-slate-500 hover:text-slate-700'
+                        ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+                        : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
                     }`}
                   >
                     مرد ایرانی
                   </button>
                 </div>
 
-                <h3 className={`text-sm font-medium uppercase tracking-wider mb-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>عملیات متن</h3>
+                <h3 className={`text-xs font-semibold font-mono uppercase tracking-wider mb-2.5 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                  عملیات متن
+                </h3>
                 
-                <div className="mb-3">
+                <div className="mb-2">
                   <select
                     value={rewriteTone}
                     onChange={(e) => setRewriteTone(e.target.value as any)}
-                    className={`w-full p-2.5 rounded-lg border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all ${isDarkMode ? 'bg-slate-900/80 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'}`}
+                    className={`w-full p-2.5 rounded-lg border text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-400 transition-all ${isDarkMode ? 'bg-zinc-950 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-700'}`}
                     dir="rtl"
                   >
                     <option value="informal">عامیانه</option>
@@ -402,34 +426,38 @@ export default function App() {
                 <button
                   onClick={handleRewrite}
                   disabled={isRewriting || isLoading || !text.trim()}
-                  className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-4 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-medium text-xs transition-all border disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
+                    isDarkMode
+                      ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-800'
+                      : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border-transparent'
+                  }`}
                 >
                   {isRewriting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Wand2 className="w-5 h-5" />
+                    <Wand2 className="w-3.5 h-3.5" />
                   )}
                   <span>{isRewriting ? 'در حال بازنویسی...' : 'بازنویسی با هوش مصنوعی'}</span>
                 </button>
 
-                <div className="mt-6 space-y-4">
+                <div className="mt-6 space-y-3.5">
                   <div className="text-xs flex items-center justify-between">
-                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>گوینده</span>
-                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>{voice === 'female' ? 'زن ایرانی' : 'مرد ایرانی'}</span>
+                    <span className={isDarkMode ? 'text-zinc-500' : 'text-zinc-400 font-medium'}>گوینده</span>
+                    <span className={`font-medium ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>{voice === 'female' ? 'زن ایرانی' : 'مرد ایرانی'}</span>
                   </div>
                   <div className="text-xs flex items-center justify-between">
-                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>سرعت پخش</span>
-                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>{playbackSpeed === 0.8 ? '۰.۸x' : playbackSpeed === 1.0 ? '۱.۰x' : '۱.۲x'}</span>
+                    <span className={isDarkMode ? 'text-zinc-500' : 'text-zinc-400 font-medium'}>سرعت پخش</span>
+                    <span className={`font-medium ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>{playbackSpeed === 0.8 ? '۰.۸x' : playbackSpeed === 1.0 ? '۱.۰x' : '۱.۲x'}</span>
                   </div>
                   <div className="text-xs flex items-center justify-between">
-                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>لحن بازنویسی</span>
-                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>
+                    <span className={isDarkMode ? 'text-zinc-500' : 'text-zinc-400 font-medium'}>لحن بازنویسی</span>
+                    <span className={`font-medium ${isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
                       {rewriteTone === 'informal' ? 'عامیانه' : rewriteTone === 'formal' ? 'رسمی' : rewriteTone === 'promotional' ? 'تبلیغاتی' : 'دوستانه'}
                     </span>
                   </div>
                   <div className="text-xs flex items-center justify-between">
-                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>موتور هوش مصنوعی</span>
-                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'} dir="ltr">Gemini 3.1 Flash</span>
+                    <span className={isDarkMode ? 'text-zinc-500' : 'text-zinc-400 font-medium'}>موتور هوش مصنوعی</span>
+                    <span className={`font-mono text-[10px] ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`} dir="ltr">Gemini 3.1 Flash</span>
                   </div>
                 </div>
               </div>
