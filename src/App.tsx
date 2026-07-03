@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Square, Loader2, Volume2, Download, Wand2, Sun, Moon } from 'lucide-react';
+import { Play, Square, Loader2, Volume2, Download, Wand2, Sun, Moon, Copy, Check } from 'lucide-react';
 import { motion } from 'motion/react';
 
 function createWAV(pcm16Array: Int16Array, sampleRate: number) {
@@ -62,10 +62,29 @@ export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [voice, setVoice] = useState<'female' | 'male'>('female');
   const [rewriteTone, setRewriteTone] = useState<'informal' | 'formal' | 'promotional' | 'friendly'>('informal');
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+  const [copied, setCopied] = useState(false);
   
   useEffect(() => {
     localStorage.setItem('solana-gold-script', text);
   }, [text]);
+
+  useEffect(() => {
+    if (isPlaying && sourceNodeRef.current) {
+      try {
+        sourceNodeRef.current.playbackRate.value = playbackSpeed;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [playbackSpeed, isPlaying]);
+
+  const handleCopyText = () => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
@@ -166,6 +185,7 @@ export default function App() {
 
       const sourceNode = audioContextRef.current.createBufferSource();
       sourceNode.buffer = audioBuffer;
+      sourceNode.playbackRate.value = playbackSpeed;
       sourceNode.connect(audioContextRef.current.destination);
       
       sourceNode.onended = () => {
@@ -216,10 +236,10 @@ export default function App() {
             <Volume2 className="w-8 h-8" />
           </div>
           <h1 className={`text-3xl font-medium tracking-tight mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-            ارائه پروژه Solana Gold
+            خوانشگر هوشمند Gold Voice
           </h1>
           <p className={`max-w-2xl mx-auto ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            متن ارائه را در زیر بررسی کنید و به صدای هوش مصنوعی گوش دهید.
+            متن خود را وارد کنید، لحن آن را با هوش مصنوعی بازنویسی کنید و با گوینده دلخواه بشنوید.
           </p>
         </motion.div>
 
@@ -233,7 +253,24 @@ export default function App() {
           </div>
           
           <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8">
-            <div className="flex-1">
+            <div className="flex-1 flex flex-col gap-2">
+              <div className="flex justify-between items-center px-1">
+                <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>متن ارائه</span>
+                <button
+                  onClick={handleCopyText}
+                  disabled={!text}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    copied
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      : isDarkMode
+                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                      : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 shadow-sm'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'کپی شد!' : 'کپی متن'}</span>
+                </button>
+              </div>
               <label htmlFor="script" className="sr-only">متن ارائه</label>
               <textarea
                 id="script"
@@ -287,6 +324,29 @@ export default function App() {
                     <span>دانلود صدا</span>
                   </button>
                 )}
+
+                <div className="mt-3 mb-1">
+                  <h4 className={`text-xs font-medium uppercase tracking-wider mb-2 ${isDarkMode ? 'text-slate-400/80' : 'text-slate-500'}`}>سرعت پخش</h4>
+                  <div className={`grid grid-cols-3 gap-1 p-1 rounded-lg border ${isDarkMode ? 'bg-slate-900/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+                    {[0.8, 1.0, 1.2].map((speed) => (
+                      <button
+                        key={speed}
+                        onClick={() => setPlaybackSpeed(speed)}
+                        className={`py-1.5 text-xs font-medium rounded-md transition-all ${
+                          playbackSpeed === speed
+                            ? isDarkMode
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'bg-indigo-500 text-white shadow-sm'
+                            : isDarkMode
+                            ? 'text-slate-400 hover:text-slate-200'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        {speed === 0.8 ? '۰.۸x' : speed === 1.0 ? '۱.۰x' : '۱.۲x'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 
                 <hr className={`my-4 ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`} />
                 
@@ -358,11 +418,17 @@ export default function App() {
                     <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>{voice === 'female' ? 'زن ایرانی' : 'مرد ایرانی'}</span>
                   </div>
                   <div className="text-xs flex items-center justify-between">
-                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>لحن</span>
-                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>عادی</span>
+                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>سرعت پخش</span>
+                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>{playbackSpeed === 0.8 ? '۰.۸x' : playbackSpeed === 1.0 ? '۱.۰x' : '۱.۲x'}</span>
                   </div>
                   <div className="text-xs flex items-center justify-between">
-                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>موتور</span>
+                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>لحن بازنویسی</span>
+                    <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>
+                      {rewriteTone === 'informal' ? 'عامیانه' : rewriteTone === 'formal' ? 'رسمی' : rewriteTone === 'promotional' ? 'تبلیغاتی' : 'دوستانه'}
+                    </span>
+                  </div>
+                  <div className="text-xs flex items-center justify-between">
+                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>موتور هوش مصنوعی</span>
                     <span className={isDarkMode ? 'text-slate-300' : 'text-slate-600'} dir="ltr">Gemini 3.1 Flash</span>
                   </div>
                 </div>

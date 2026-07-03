@@ -1,5 +1,5 @@
 {
-  "name": "Solana Gold Presentation",
+  "name": "Gold voice",
   "description": "A text-to-speech presentation tool that reads the Solana Gold script in a female Iranian accent using Gemini TTS.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
