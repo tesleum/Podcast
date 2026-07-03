@@ -37,6 +37,96 @@ import {
   ContentCut as ContentCutIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'motion/react';
+import * as d3 from 'd3';
+
+// Interface for sentence tracking
+interface SentenceRange {
+  text: string;
+  startIndex: number;
+  endIndex: number;
+  wordCount: number;
+  charCount: number;
+  estimatedDuration: number;
+  estimatedStart: number;
+  estimatedEnd: number;
+}
+
+// Splits Persian text into sentences while tracking their start/end indices and estimating speak times
+function parseSentences(text: string, totalDuration: number): SentenceRange[] {
+  if (!text.trim()) return [];
+  
+  // Regex to split by Persian/English sentence punctuation while retaining the separator
+  const matches = text.match(/[^.!?؟\n؛;]+[.!?؟\n؛;]*/g) || [text];
+  
+  const sentences: SentenceRange[] = [];
+  let currentIndex = 0;
+  let totalChars = 0;
+  
+  const parsedSegments = matches.map((segment) => {
+    const start = text.indexOf(segment, currentIndex);
+    const end = start + segment.length;
+    currentIndex = end;
+    
+    const trimmed = segment.trim();
+    const charCount = trimmed.length;
+    const wordCount = trimmed === '' ? 0 : trimmed.split(/\s+/).length;
+    
+    totalChars += charCount;
+    
+    return {
+      text: segment,
+      startIndex: start,
+      endIndex: end,
+      wordCount,
+      charCount,
+    };
+  }).filter(s => s.charCount > 0);
+  
+  if (totalChars === 0) return [];
+  
+  let accumulatedTime = 0;
+  const result: SentenceRange[] = parsedSegments.map((seg) => {
+    const proportion = seg.charCount / totalChars;
+    const estimatedDuration = proportion * totalDuration;
+    const estimatedStart = accumulatedTime;
+    const estimatedEnd = accumulatedTime + estimatedDuration;
+    accumulatedTime = estimatedEnd;
+    
+    return {
+      ...seg,
+      estimatedDuration,
+      estimatedStart,
+      estimatedEnd,
+    };
+  });
+  
+  return result;
+}
+
+// Helper to estimate scroll top of a character index in textarea
+function estimateScrollTopForIndex(textarea: HTMLTextAreaElement, index: number): number {
+  const textBefore = textarea.value.substring(0, index);
+  const fontSize = parseFloat(window.getComputedStyle(textarea).fontSize) || 16;
+  const lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight) || (fontSize * 1.8);
+  const clientWidth = textarea.clientWidth || 600;
+  
+  const charWidth = fontSize * 0.55;
+  const charsPerLine = Math.max(20, Math.floor(clientWidth / charWidth));
+  
+  const paragraphs = textBefore.split('\n');
+  let totalLines = 0;
+  for (let i = 0; i < paragraphs.length; i++) {
+    const pLen = paragraphs[i].length;
+    if (i === paragraphs.length - 1) {
+      totalLines += Math.ceil(pLen / charsPerLine);
+    } else {
+      totalLines += Math.max(1, Math.ceil(pLen / charsPerLine));
+    }
+  }
+  
+  const targetScrollTop = (totalLines - 3) * lineHeight;
+  return Math.max(0, targetScrollTop);
+}
 
 // Helper to format seconds to time string (m:ss.x)
 function formatTime(seconds: number): string {
@@ -92,34 +182,83 @@ function createWAV(pcm16Array: Int16Array, sampleRate: number) {
   return new Blob([view], { type: 'audio/wav' });
 }
 
-// Beautiful voice waveform reflecting active speaker playback with framer-motion
-function VoiceWaveform({ isPlaying }: { isPlaying: boolean }) {
-  const bars = Array.from({ length: 18 }, (_, i) => i);
+// Beautiful voice waveform reflecting active speaker playback in real-time using d3
+function VoiceWaveformD3({ analyser, isPlaying }: { analyser: AnalyserNode | null; isPlaying: boolean }) {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    
+    if (!isPlaying || !analyser) {
+      // Draw static resting bars
+      const staticData = [12, 18, 15, 24, 30, 20, 15, 10, 8, 12, 20, 28, 22, 14, 18, 10, 6, 4];
+      const width = svgRef.current?.clientWidth || 180;
+      const height = svgRef.current?.clientHeight || 24;
+      const barWidth = (width / staticData.length) - 1.5;
+      
+      const bars = svg.selectAll<SVGRectElement, number>('rect')
+        .data(staticData);
+        
+      bars.enter()
+        .append('rect')
+        .attr('fill', '#f59e0b')
+        .attr('rx', 2)
+        .attr('ry', 2)
+        .merge(bars)
+        .transition()
+        .duration(300)
+        .attr('x', (d, i) => i * (barWidth + 1.5))
+        .attr('y', d => height - (d / 40) * height)
+        .attr('width', Math.max(1.5, barWidth))
+        .attr('height', d => Math.max(2, (d / 40) * height));
+        
+      bars.exit().remove();
+      return;
+    }
+    
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    let animationFrameId: number;
+    
+    const renderFrame = () => {
+      animationFrameId = requestAnimationFrame(renderFrame);
+      analyser.getByteFrequencyData(dataArray);
+      
+      const width = svgRef.current?.clientWidth || 180;
+      const height = svgRef.current?.clientHeight || 24;
+      const barWidth = (width / bufferLength) - 1.5;
+      
+      const bars = svg.selectAll<SVGRectElement, number>('rect')
+        .data(Array.from(dataArray));
+      
+      bars.enter()
+        .append('rect')
+        .attr('fill', '#f59e0b')
+        .attr('rx', 2)
+        .attr('ry', 2)
+        .merge(bars)
+        .attr('x', (d, i) => i * (barWidth + 1.5))
+        .attr('y', d => height - (d / 255) * height)
+        .attr('width', Math.max(1.5, barWidth))
+        .attr('height', d => Math.max(2, (d / 255) * height));
+        
+      bars.exit().remove();
+    };
+    
+    renderFrame();
+    
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [analyser, isPlaying]);
+  
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: '3px', height: '24px', px: 1, justifyContent: 'center' }} dir="ltr">
-      {bars.map((bar) => {
-        const heightMultiplier = [0.3, 0.6, 0.9, 0.5, 0.8, 0.4, 0.95, 0.7, 0.5, 0.85, 0.6, 0.9, 0.3, 0.75, 0.5, 0.8, 0.4, 0.2][bar];
-        return (
-          <motion.div
-            key={bar}
-            style={{
-              width: '2.5px',
-              borderRadius: '9999px',
-              backgroundColor: '#F59E0B'
-            }}
-            initial={{ height: 4 }}
-            animate={{
-              height: isPlaying ? [4, heightMultiplier * 24, 4] : 4
-            }}
-            transition={{
-              duration: isPlaying ? 0.7 + (bar % 4) * 0.12 : 0.2,
-              repeat: isPlaying ? Infinity : 0,
-              ease: "easeInOut"
-            }}
-          />
-        );
-      })}
-    </Box>
+    <svg 
+      ref={svgRef} 
+      style={{ width: '180px', height: '24px', display: 'block' }}
+    />
   );
 }
 
@@ -147,6 +286,21 @@ export default function App() {
   const [trimRange, setTrimRange] = useState<[number, number]>([0, 0]);
   const [generatedText, setGeneratedText] = useState<string>('');
 
+  // Sentence and Audio tracking states
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [sentences, setSentences] = useState<SentenceRange[]>([]);
+  const [activeSentenceIndex, setActiveSentenceIndex] = useState<number | null>(null);
+
+  // Synchronization refs to avoid closure stale values in high-speed requestAnimationFrame loop
+  const isPlayingRef = useRef(false);
+  const sentencesRef = useRef<SentenceRange[]>([]);
+  const playbackSpeedRef = useRef(1.0);
+  const activeSentenceIndexRef = useRef<number | null>(null);
+  const playOffsetRef = useRef(0);
+  const playbackStartTimeRef = useRef(0);
+  const animationFrameRef = useRef<number | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
   const handleTrimChange = (event: Event | React.SyntheticEvent | any, newValue: number | number[]) => {
     setTrimRange(newValue as [number, number]);
     if (isPlaying) {
@@ -157,6 +311,87 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('solana-gold-script', text);
   }, [text]);
+
+  // Regenerate sentences when text or audio duration changes
+  useEffect(() => {
+    if (text && audioDuration > 0) {
+      const parsed = parseSentences(text, audioDuration);
+      setSentences(parsed);
+    } else {
+      setSentences([]);
+    }
+    setActiveSentenceIndex(null);
+    activeSentenceIndexRef.current = null;
+  }, [text, audioDuration]);
+
+  // Keep references synced
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    sentencesRef.current = sentences;
+  }, [sentences]);
+
+  useEffect(() => {
+    playbackSpeedRef.current = playbackSpeed;
+  }, [playbackSpeed]);
+
+  // Smooth scroll textarea to the active sentence being spoken
+  useEffect(() => {
+    if (activeSentenceIndex !== null && sentences[activeSentenceIndex] && textareaRef.current) {
+      const sentence = sentences[activeSentenceIndex];
+      
+      // Select text in editor to visually highlight it
+      textareaRef.current.setSelectionRange(sentence.startIndex, sentence.endIndex);
+      
+      // Calculate smooth scroll offset
+      const targetScroll = estimateScrollTopForIndex(textareaRef.current, sentence.startIndex);
+      textareaRef.current.scrollTo({
+        top: targetScroll,
+        behavior: 'smooth'
+      });
+    }
+  }, [activeSentenceIndex, sentences]);
+
+  // RequestAnimationFrame loop for timing tracking
+  const startProgressLoop = (offset: number) => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
+    playOffsetRef.current = offset;
+    playbackStartTimeRef.current = audioContextRef.current ? audioContextRef.current.currentTime : 0;
+    
+    const tick = () => {
+      if (!isPlayingRef.current || !audioContextRef.current) {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+        return;
+      }
+      
+      const elapsed = (audioContextRef.current.currentTime - playbackStartTimeRef.current) * playbackSpeedRef.current;
+      const currentPosition = playOffsetRef.current + elapsed;
+      
+      const list = sentencesRef.current;
+      if (list.length > 0) {
+        const activeIndex = list.findIndex(
+          s => currentPosition >= s.estimatedStart && currentPosition < s.estimatedEnd
+        );
+        
+        if (activeIndex !== -1 && activeIndex !== activeSentenceIndexRef.current) {
+          activeSentenceIndexRef.current = activeIndex;
+          setActiveSentenceIndex(activeIndex);
+        }
+      }
+      
+      animationFrameRef.current = requestAnimationFrame(tick);
+    };
+    
+    animationFrameRef.current = requestAnimationFrame(tick);
+  };
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
@@ -179,6 +414,13 @@ export default function App() {
   };
 
   const stopAudio = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    activeSentenceIndexRef.current = null;
+    setActiveSentenceIndex(null);
+
     if (sourceNodeRef.current) {
       try {
         sourceNodeRef.current.stop();
@@ -227,9 +469,9 @@ export default function App() {
     
     // Support instant local playback if text matches generatedText and we have the PCM data
     if (rawPcmData && text === generatedText) {
+      stopAudio();
       setIsPlaying(true);
       setError(null);
-      stopAudio();
       
       try {
         if (!audioContextRef.current) {
@@ -249,10 +491,23 @@ export default function App() {
         const sourceNode = audioContextRef.current.createBufferSource();
         sourceNode.buffer = audioBuffer;
         sourceNode.playbackRate.value = playbackSpeed;
-        sourceNode.connect(audioContextRef.current.destination);
+        
+        // Create and connect AnalyserNode for real-time frequency visualization
+        const analyserNode = audioContextRef.current.createAnalyser();
+        analyserNode.fftSize = 64;
+        setAnalyser(analyserNode);
+
+        sourceNode.connect(analyserNode);
+        analyserNode.connect(audioContextRef.current.destination);
         
         sourceNode.onended = () => {
           setIsPlaying(false);
+          activeSentenceIndexRef.current = null;
+          setActiveSentenceIndex(null);
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+          }
         };
 
         sourceNodeRef.current = sourceNode;
@@ -261,6 +516,9 @@ export default function App() {
         const playOffset = trimRange[0];
         const playDuration = trimRange[1] - trimRange[0];
         sourceNode.start(0, playOffset, playDuration);
+        
+        // Start tracking time to match spoken sentences
+        startProgressLoop(playOffset);
       } catch (err: any) {
         console.error(err);
         setError('خطایی در پخش محلی صدا رخ داد.');
@@ -330,10 +588,23 @@ export default function App() {
       const sourceNode = audioContextRef.current.createBufferSource();
       sourceNode.buffer = audioBuffer;
       sourceNode.playbackRate.value = playbackSpeed;
-      sourceNode.connect(audioContextRef.current.destination);
+      
+      // Create and connect AnalyserNode for real-time frequency visualization
+      const analyserNode = audioContextRef.current.createAnalyser();
+      analyserNode.fftSize = 64;
+      setAnalyser(analyserNode);
+
+      sourceNode.connect(analyserNode);
+      analyserNode.connect(audioContextRef.current.destination);
       
       sourceNode.onended = () => {
         setIsPlaying(false);
+        activeSentenceIndexRef.current = null;
+        setActiveSentenceIndex(null);
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
       };
 
       sourceNodeRef.current = sourceNode;
@@ -341,6 +612,9 @@ export default function App() {
       // Since it's a new generation, play the full audio range
       sourceNode.start(0, 0, duration);
       setIsPlaying(true);
+      
+      // Start tracking time to match spoken sentences
+      startProgressLoop(0);
 
     } catch (err: any) {
       console.error(err);
@@ -619,36 +893,36 @@ export default function App() {
               </Typography>
             </Box>
 
-            {/* Active Waveform Panel */}
-            {isPlaying && (
-              <Fade in={isPlaying}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    px: 3,
-                    py: 1.2,
-                    borderRadius: '9999px',
-                    border: '1px solid',
-                    borderColor: 'primary.main',
-                    backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.05)' : 'rgba(245, 158, 11, 0.02)'
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ position: 'relative', display: 'flex', height: 8, width: 8 }}>
+            {/* Active Waveform Panel with Real-Time Frequency Bars */}
+            <Fade in={isPlaying || !!analyser}>
+              <Paper
+                elevation={0}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  px: 3,
+                  py: 1.2,
+                  borderRadius: '9999px',
+                  border: '1px solid',
+                  borderColor: isPlaying ? 'primary.main' : 'divider',
+                  backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.05)' : 'rgba(245, 158, 11, 0.02)'
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ position: 'relative', display: 'flex', height: 8, width: 8 }}>
+                    {isPlaying && (
                       <Box className="animate-ping" sx={{ position: 'absolute', display: 'inline-flex', height: '100%', width: '100%', borderRadius: '50%', backgroundColor: 'primary.light', opacity: 0.75 }} />
-                      <Box sx={{ position: 'relative', display: 'inline-flex', borderRadius: '50%', height: 8, width: 8, backgroundColor: 'primary.main' }} />
-                    </Box>
-                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                      درحال پخش صدا...
-                    </Typography>
+                    )}
+                    <Box sx={{ position: 'relative', display: 'inline-flex', borderRadius: '50%', height: 8, width: 8, backgroundColor: isPlaying ? 'primary.main' : 'text.disabled' }} />
                   </Box>
-                  <VoiceWaveform isPlaying={isPlaying} />
-                </Paper>
-              </Fade>
-            )}
+                  <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                    {isPlaying ? 'درحال پخش صدا...' : 'آماده پخش'}
+                  </Typography>
+                </Box>
+                <VoiceWaveformD3 analyser={analyser} isPlaying={isPlaying} />
+              </Paper>
+            </Fade>
           </Box>
 
           {/* Global Alert Notification */}
@@ -754,8 +1028,9 @@ export default function App() {
                 </Box>
 
                 {/* Main Textarea Area */}
-                <Box sx={{ p: 3 }}>
+                <Box sx={{ p: 3, position: 'relative' }}>
                   <textarea
+                    ref={textareaRef}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     dir="rtl"
@@ -773,6 +1048,51 @@ export default function App() {
                       color: isDarkMode ? '#f4f4f5' : '#0f172a',
                     }}
                   />
+
+                  {/* Gorgeous Subtitles Strip Overlay inside Textarea Container */}
+                  <AnimatePresence>
+                    {isPlaying && activeSentenceIndex !== null && sentences[activeSentenceIndex] && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 15 }}
+                        style={{
+                          position: 'absolute',
+                          bottom: '16px',
+                          left: '16px',
+                          right: '16px',
+                          zIndex: 10,
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        <Paper
+                          elevation={3}
+                          sx={{
+                            p: 2,
+                            borderRadius: '16px',
+                            backgroundColor: isDarkMode ? 'rgba(24, 24, 27, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                            border: '1px solid',
+                            borderColor: 'primary.main',
+                            boxShadow: '0 10px 25px -5px rgba(245, 158, 11, 0.15)',
+                            backdropFilter: 'blur(12px)',
+                          }}
+                        >
+                          <Typography 
+                            variant="body1" 
+                            sx={{ 
+                              fontWeight: 800, 
+                              textAlign: 'center', 
+                              color: '#f59e0b',
+                              fontSize: '0.98rem',
+                              lineHeight: 1.6
+                            }}
+                          >
+                            {sentences[activeSentenceIndex].text}
+                          </Typography>
+                        </Paper>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </Box>
 
                 {/* Footer Statistics */}
