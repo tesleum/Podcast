@@ -16,7 +16,8 @@ import {
   Paper,
   Alert,
   Fade,
-  Slider
+  Slider,
+  Drawer
 } from '@mui/material';
 import {
   KeyboardVoice as KeyboardVoiceIcon,
@@ -34,7 +35,10 @@ import {
   Translate as TranslateIcon,
   GraphicEq as GraphicEqIcon,
   RestartAlt as RestartAltIcon,
-  ContentCut as ContentCutIcon
+  ContentCut as ContentCutIcon,
+  History as HistoryIcon,
+  Delete as DeleteIcon,
+  FolderOpen as FolderOpenIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'motion/react';
 import * as d3 from 'd3';
@@ -262,6 +266,123 @@ function VoiceWaveformD3({ analyser, isPlaying }: { analyser: AnalyserNode | nul
   );
 }
 
+// Interface for HistoryItem
+interface HistoryItem {
+  id?: number;
+  text: string;
+  voice: 'female' | 'male';
+  pcmData: Int16Array;
+  duration: number;
+  timestamp: number;
+}
+
+const DB_NAME = 'GoldVoiceHistoryDB_v3';
+const DB_VERSION = 1;
+const STORE_NAME = 'history';
+
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    try {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = (event: any) => {
+        const db = event.target.result as IDBDatabase;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        }
+      };
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+async function saveHistoryItem(item: Omit<HistoryItem, 'id'>): Promise<void> {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    
+    // First, get all existing items to enforce a limit of 5
+    await new Promise<void>((resolve, reject) => {
+      const allItemsReq = store.getAll();
+      allItemsReq.onsuccess = () => {
+        const allItems = allItemsReq.result as HistoryItem[];
+        // Sort by timestamp ascending (oldest first)
+        allItems.sort((a, b) => a.timestamp - b.timestamp);
+        
+        // If we already have 5 or more, delete the oldest ones
+        if (allItems.length >= 5) {
+          const deleteCount = allItems.length - 5 + 1;
+          for (let i = 0; i < deleteCount; i++) {
+            if (allItems[i].id !== undefined) {
+              store.delete(allItems[i].id!);
+            }
+          }
+        }
+        
+        // Add the new item
+        const addReq = store.add(item);
+        addReq.onsuccess = () => resolve();
+        addReq.onerror = () => reject(addReq.error);
+      };
+      allItemsReq.onerror = () => reject(allItemsReq.error);
+    });
+  } catch (error) {
+    console.error('Error saving to IndexedDB:', error);
+  }
+}
+
+async function getHistoryItems(): Promise<HistoryItem[]> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const items = request.result as HistoryItem[];
+        // Sort descending (newest first)
+        items.sort((a, b) => b.timestamp - a.timestamp);
+        resolve(items);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error getting history from IndexedDB:', error);
+    return [];
+  }
+}
+
+async function deleteHistoryItem(id: number): Promise<void> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error deleting from IndexedDB:', error);
+  }
+}
+
+function formatRelativeTime(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const secs = Math.floor(diff / 1000);
+  const mins = Math.floor(secs / 60);
+  const hours = Math.floor(mins / 60);
+  const days = Math.floor(hours / 24);
+
+  if (secs < 60) return 'لحظاتی پیش';
+  if (mins < 60) return `${mins} دقیقه پیش`;
+  if (hours < 24) return `${hours} ساعت پیش`;
+  return `${days} روز پیش`;
+}
+
 const defaultText = `سلام! به خوانشگر هوشمند گلد ویس خوش آمدید. با این ابزار ساده و زیبا می‌توانید متن‌های خود را بنویسید، آن‌ها را با هوش مصنوعی بازنویسی و اصلاح کنید و سپس با صدای گویندگان طبیعی فارسی بشنوید. این برنامه برای تولید محتوای صوتی، دکلمه و پادکست‌های شما طراحی شده است.`;
 
 export default function App() {
@@ -279,6 +400,18 @@ export default function App() {
   const [rewriteTone, setRewriteTone] = useState<'informal' | 'formal' | 'promotional' | 'friendly'>('informal');
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [copied, setCopied] = useState(false);
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+
+  // Load history on mount
+  useEffect(() => {
+    const loadHistory = async () => {
+      const items = await getHistoryItems();
+      setHistoryItems(items);
+    };
+    loadHistory();
+  }, []);
 
   // Trimming & caching states
   const [rawPcmData, setRawPcmData] = useState<Int16Array | null>(null);
@@ -616,6 +749,21 @@ export default function App() {
       // Start tracking time to match spoken sentences
       startProgressLoop(0);
 
+      // Save to IndexedDB history
+      try {
+        await saveHistoryItem({
+          text,
+          voice,
+          pcmData: int16Array,
+          duration,
+          timestamp: Date.now()
+        });
+        const items = await getHistoryItems();
+        setHistoryItems(items);
+      } catch (dbErr) {
+        console.error('Failed to save to history database:', dbErr);
+      }
+
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'خطایی در تولید یا پخش صدا رخ داد.');
@@ -661,6 +809,86 @@ export default function App() {
 
   const handleResetDefault = () => {
     setText(defaultText);
+  };
+
+  const handleLoadHistoryItem = (item: HistoryItem, autoPlay = false) => {
+    stopAudio();
+    setError(null);
+    setText(item.text);
+    setVoice(item.voice);
+    setRawPcmData(item.pcmData);
+    setGeneratedText(item.text);
+    setAudioDuration(item.duration);
+    setTrimRange([0, item.duration]);
+    
+    try {
+      const wavBlob = createWAV(item.pcmData, 24000);
+      setAudioBlob(wavBlob);
+    } catch (e) {
+      console.error('Error creating wav blob from loaded history:', e);
+    }
+
+    if (autoPlay) {
+      setIsPlaying(true);
+      try {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        }
+        
+        if (audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume();
+        }
+
+        const audioBuffer = audioContextRef.current.createBuffer(1, item.pcmData.length, 24000);
+        const channelData = audioBuffer.getChannelData(0);
+        for (let i = 0; i < item.pcmData.length; i++) {
+          channelData[i] = item.pcmData[i] / 32768.0;
+        }
+
+        const sourceNode = audioContextRef.current.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.playbackRate.value = playbackSpeed;
+        
+        const analyserNode = audioContextRef.current.createAnalyser();
+        analyserNode.fftSize = 64;
+        setAnalyser(analyserNode);
+
+        sourceNode.connect(analyserNode);
+        analyserNode.connect(audioContextRef.current.destination);
+        
+        sourceNode.onended = () => {
+          setIsPlaying(false);
+          activeSentenceIndexRef.current = null;
+          setActiveSentenceIndex(null);
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+          }
+        };
+
+        sourceNodeRef.current = sourceNode;
+        sourceNode.start(0, 0, item.duration);
+        
+        const parsed = parseSentences(item.text, item.duration);
+        setSentences(parsed);
+        sentencesRef.current = parsed;
+        startProgressLoop(0);
+      } catch (err: any) {
+        console.error(err);
+        setError('خطایی در پخش فایل تاریخچه رخ داد.');
+        setIsPlaying(false);
+      }
+    }
+  };
+
+  const handleDeleteHistoryItem = async (id: number) => {
+    try {
+      await deleteHistoryItem(id);
+      const items = await getHistoryItems();
+      setHistoryItems(items);
+    } catch (e) {
+      console.error('Error deleting history item:', e);
+    }
   };
 
   // Helper values for text statistics
@@ -842,6 +1070,26 @@ export default function App() {
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Tooltip title="تاریخچه تولیدات صوتی">
+                <IconButton 
+                  onClick={() => setHistoryOpen(true)} 
+                  color="inherit"
+                  sx={{ 
+                    border: 1, 
+                    borderColor: 'divider', 
+                    p: 1.2, 
+                    borderRadius: '9999px',
+                    color: '#f59e0b',
+                    backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                    '&:hover': {
+                      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+                    }
+                  }}
+                >
+                  <HistoryIcon sx={{ fontSize: '1.2rem' }} />
+                </IconButton>
+              </Tooltip>
+
               <Tooltip title={isDarkMode ? 'پوسته روشن' : 'پوسته تاریک'}>
                 <IconButton 
                   onClick={() => setIsDarkMode(!isDarkMode)} 
@@ -1643,6 +1891,226 @@ export default function App() {
             </Box>
           </Paper>
         </Box>
+
+        {/* Beautiful RTL History Drawer */}
+        <Drawer
+          anchor="right"
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          slotProps={{
+            paper: {
+              sx: {
+                width: { xs: '100%', sm: 400 },
+                backgroundColor: isDarkMode ? '#121214' : '#ffffff',
+                borderLeft: '1px solid',
+                borderColor: 'divider',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '-10px 0 30px rgba(0, 0, 0, 0.15)',
+                p: 3,
+              }
+            }
+          } as any}
+        >
+          {/* Drawer Header */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }} dir="rtl">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <HistoryIcon sx={{ color: 'primary.main', fontSize: '1.6rem' }} />
+              <Typography variant="h6" sx={{ fontWeight: 900, fontSize: '1.15rem' }}>
+                تاریخچه تولیدات صوتی
+              </Typography>
+            </Box>
+            <Button 
+              onClick={() => setHistoryOpen(false)}
+              variant="outlined" 
+              size="small"
+              sx={{ px: 2, py: 0.5, fontSize: '0.75rem', borderRadius: '12px' }}
+            >
+              بستن
+            </Button>
+          </Box>
+
+          <Divider sx={{ mb: 3 }} />
+
+          {/* Drawer Body / History List */}
+          <Box 
+            sx={{ 
+              flexGrow: 1, 
+              overflowY: 'auto', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 2,
+              mb: 2,
+              pr: 0.5 
+            }}
+            dir="rtl"
+          >
+            {historyItems.length === 0 ? (
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  flexGrow: 1, 
+                  gap: 2,
+                  py: 6,
+                  px: 3,
+                  textAlign: 'center',
+                  opacity: 0.8
+                }}
+              >
+                <FolderOpenIcon sx={{ fontSize: '3rem', color: 'text.disabled' }} />
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                  هنوز هیچ فایل صوتی تولید نکرده‌اید.
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.disabled', maxWidth: 260 }}>
+                  با نوشتن متن در ادیتور و کلیک بر روی دکمه «بشنو»، صدای تولید شده به‌طور خودکار در تاریخچه ذخیره می‌شود.
+                </Typography>
+              </Box>
+            ) : (
+              historyItems.map((item) => (
+                <Paper
+                  key={item.id}
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    borderRadius: '16px',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 0, 0, 0.01)',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      borderColor: 'primary.main',
+                      backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.03)' : 'rgba(245, 158, 11, 0.01)',
+                      boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)',
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Chip
+                        label={item.voice === 'female' ? 'زن' : 'مرد'}
+                        size="small"
+                        sx={{
+                          height: 20,
+                          fontSize: '0.65rem',
+                          backgroundColor: item.voice === 'female' ? 'rgba(236, 72, 153, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                          color: item.voice === 'female' ? '#ec4899' : '#3b82f6',
+                          fontWeight: 800,
+                        }}
+                      />
+                      <Chip
+                        label={`${item.duration.toFixed(1)} ثانیه`}
+                        size="small"
+                        sx={{
+                          height: 20,
+                          fontSize: '0.65rem',
+                          backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
+                          color: 'text.secondary',
+                          fontWeight: 700
+                        }}
+                      />
+                    </Box>
+                    <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600 }}>
+                      {formatRelativeTime(item.timestamp)}
+                    </Typography>
+                  </Box>
+
+                  {/* Script summary preview */}
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'text.primary',
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                      lineHeight: 1.5,
+                      mb: 2,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {item.text}
+                  </Typography>
+
+                  <Divider sx={{ my: 1.5, opacity: 0.5 }} />
+
+                  {/* Card Actions */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() => {
+                          handleLoadHistoryItem(item, false);
+                          setHistoryOpen(false);
+                        }}
+                        sx={{
+                          fontSize: '0.72rem',
+                          py: 0.4,
+                          px: 1.5,
+                          borderRadius: '8px',
+                          fontWeight: 800
+                        }}
+                      >
+                        بارگذاری
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => {
+                          handleLoadHistoryItem(item, true);
+                          setHistoryOpen(false);
+                        }}
+                        startIcon={<PlayArrowIcon sx={{ fontSize: '0.9rem' }} />}
+                        sx={{
+                          fontSize: '0.72rem',
+                          py: 0.4,
+                          px: 1.5,
+                          borderRadius: '8px',
+                          fontWeight: 800
+                        }}
+                      >
+                        پخش مستقیم
+                      </Button>
+                    </Box>
+
+                    <Tooltip title="حذف از تاریخچه">
+                      <IconButton
+                        size="small"
+                        onClick={() => item.id !== undefined && handleDeleteHistoryItem(item.id)}
+                        sx={{
+                          color: 'text.disabled',
+                          '&:hover': {
+                            color: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                          }
+                        }}
+                      >
+                        <DeleteIcon sx={{ fontSize: '1.1rem' }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Paper>
+              ))
+            )}
+          </Box>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {/* Drawer Footer with History size indicator */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} dir="rtl">
+            <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600 }}>
+              ذخیره محلی و فوق‌سریع در مرورگر
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800 }}>
+              {historyItems.length} از ۵ مورد اخیر
+            </Typography>
+          </Box>
+        </Drawer>
       </Box>
     </ThemeProvider>
   );
