@@ -388,6 +388,7 @@ export default function App() {
   const [rewriteTone, setRewriteTone] = useState<'informal' | 'formal' | 'promotional' | 'friendly'>('informal');
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [copied, setCopied] = useState(false);
+  const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
@@ -533,7 +534,94 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const previewSourceRef = useRef<AudioBufferSourceNode | null>(null);
+
+  const stopVoicePreview = () => {
+    if (previewSourceRef.current) {
+      try {
+        previewSourceRef.current.stop();
+        previewSourceRef.current.disconnect();
+      } catch (e) {
+        // Already stopped
+      }
+      previewSourceRef.current = null;
+    }
+    setPreviewingVoiceId(null);
+  };
+
+  const playVoicePreview = async (voiceId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
+
+    if (previewingVoiceId === voiceId) {
+      stopVoicePreview();
+      return;
+    }
+
+    stopVoicePreview();
+    stopAudio(); // Stop main audio if playing
+
+    setPreviewingVoiceId(voiceId);
+
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: 'سلام! این صدای آزمایشی برای من است.',
+          voice: voiceId,
+          isMultiSpeaker: false
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch preview');
+      }
+
+      const data = await response.json();
+      if (!data.audio) {
+        throw new Error('No audio in preview response');
+      }
+
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      }
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
+      const binaryString = atob(data.audio);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const int16Array = new Int16Array(bytes.buffer);
+      const audioBuffer = audioContextRef.current.createBuffer(1, int16Array.length, 24000);
+      const channelData = audioBuffer.getChannelData(0);
+      for (let i = 0; i < int16Array.length; i++) {
+        channelData[i] = int16Array[i] / 32768.0;
+      }
+
+      const sourceNode = audioContextRef.current.createBufferSource();
+      sourceNode.buffer = audioBuffer;
+      sourceNode.connect(audioContextRef.current.destination);
+
+      sourceNode.onended = () => {
+        setPreviewingVoiceId(null);
+        previewSourceRef.current = null;
+      };
+
+      previewSourceRef.current = sourceNode;
+      sourceNode.start(0);
+    } catch (err) {
+      console.error('Error playing preview:', err);
+      setPreviewingVoiceId(null);
+    }
+  };
+
   const stopAudio = () => {
+    stopVoicePreview();
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -1489,7 +1577,34 @@ export default function App() {
                                 sx={{ fontSize: '0.8rem', fontWeight: 600, borderRadius: '8px' }}
                               >
                                 {voices.map(v => (
-                                  <MenuItem key={v.id} value={v.id} sx={{ fontSize: '0.8rem' }}>{v.name}</MenuItem>
+                                  <MenuItem 
+                                    key={v.id} 
+                                    value={v.id} 
+                                    sx={{ 
+                                      fontSize: '0.8rem',
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center',
+                                      width: '100%',
+                                      gap: 1
+                                    }}
+                                  >
+                                    <span>{v.name}</span>
+                                    <IconButton
+                                      size="small"
+                                      onClick={(e) => playVoicePreview(v.id, e)}
+                                      sx={{
+                                        p: 0.2,
+                                        color: previewingVoiceId === v.id ? 'error.main' : 'primary.main',
+                                        backgroundColor: previewingVoiceId === v.id ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                        '&:hover': {
+                                          backgroundColor: previewingVoiceId === v.id ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                                        }
+                                      }}
+                                    >
+                                      {previewingVoiceId === v.id ? <StopIcon sx={{ fontSize: '1rem' }} /> : <PlayArrowIcon sx={{ fontSize: '1rem' }} />}
+                                    </IconButton>
+                                  </MenuItem>
                                 ))}
                               </Select>
                             </FormControl>
@@ -1526,8 +1641,35 @@ export default function App() {
                           }}
                         >
                           {voices.map(v => (
-                            <MenuItem key={v.id} value={v.id} sx={{ fontSize: '0.85rem', fontWeight: 600, py: 1 }}>
-                              {v.name}
+                            <MenuItem 
+                              key={v.id} 
+                              value={v.id} 
+                              sx={{ 
+                                fontSize: '0.85rem', 
+                                fontWeight: 600, 
+                                py: 0.5,
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                width: '100%',
+                                gap: 1
+                              }}
+                            >
+                              <span>{v.name}</span>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => playVoicePreview(v.id, e)}
+                                sx={{
+                                  p: 0.3,
+                                  color: previewingVoiceId === v.id ? 'error.main' : 'primary.main',
+                                  backgroundColor: previewingVoiceId === v.id ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                  '&:hover': {
+                                    backgroundColor: previewingVoiceId === v.id ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                                  }
+                                }}
+                              >
+                                {previewingVoiceId === v.id ? <StopIcon sx={{ fontSize: '1.1rem' }} /> : <PlayArrowIcon sx={{ fontSize: '1.1rem' }} />}
+                              </IconButton>
                             </MenuItem>
                           ))}
                         </Select>
