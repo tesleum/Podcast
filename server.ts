@@ -22,34 +22,51 @@ async function startServer() {
   // API route for TTS
   app.post("/api/tts", async (req, res) => {
     try {
-      const { text, voice = 'female' } = req.body;
+      const { text, voice = 'Aoede', isMultiSpeaker = false, speakers = [] } = req.body;
+
       if (!text) {
         return res.status(400).json({ error: "Text is required" });
       }
 
-      const voiceName = voice === 'male' ? "Puck" : "Aoede";
-      
-      const promptText = `Say the following Persian text naturally and normally as a ${voice === 'male' ? 'male' : 'female'} Iranian presenter:\n\n${text}`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-tts-preview",
-        contents: [{ parts: [{ text: promptText }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voiceName },
+      if (isMultiSpeaker) {
+        const interaction = await (ai as any).interactions.create({
+          model: "gemini-3.1-flash-tts-preview",
+          input: text,
+          response_format: { type: 'audio' },
+          generation_config: {
+            speech_config: speakers
+          }
+        });
+        
+        const base64Audio = interaction.outputAudio?.data || interaction.output_audio?.data;
+        if (base64Audio) {
+          res.json({ audio: base64Audio });
+        } else {
+          res.status(500).json({ error: "Failed to generate multi-speaker audio" });
+        }
+      } else {
+        const promptText = `Say the following Persian text naturally and normally:\n\n${text}`;
+        
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-tts-preview",
+          contents: [{ parts: [{ text: promptText }] }],
+          config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: voice },
+              },
             },
           },
-        },
-      });
+        });
 
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      
-      if (base64Audio) {
-        res.json({ audio: base64Audio });
-      } else {
-        res.status(500).json({ error: "Failed to generate audio" });
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        
+        if (base64Audio) {
+          res.json({ audio: base64Audio });
+        } else {
+          res.status(500).json({ error: "Failed to generate audio" });
+        }
       }
     } catch (error) {
       console.error("TTS generation error:", error);

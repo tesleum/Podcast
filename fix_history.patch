@@ -1,0 +1,7 @@
+--- src/App.tsx
++++ src/App.tsx
+@@ -2072,7 +2072,7 @@
+                       <Chip
+-                        label={item.isMultiSpeaker ? 'چند گوینده' : (voices.find(v => v.id === item.voice)?.name?.split(' ')[0] || item.voice)}
++                        label={item.isMultiSpeaker ? 'چند گوینده' : (voices.find(v => v.id === item.voice)?.name || item.voice)}
+                         size="small"

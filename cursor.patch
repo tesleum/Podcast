@@ -1,0 +1,44 @@
+--- src/App.tsx
++++ src/App.tsx
+@@ -1295,6 +1295,30 @@
+                 </Box>
+ 
++                {/* Tags and Prompt Assist */}
++                <Box sx={{ px: 3, pt: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
++                  {audioTags.map(tag => (
++                    <Chip 
++                      key={tag.tag}
++                      label={tag.label}
++                      size="small"
++                      variant="outlined"
++                      onClick={() => {
++                        if (textareaRef.current) {
++                          const start = textareaRef.current.selectionStart;
++                          const end = textareaRef.current.selectionEnd;
++                          const newText = text.substring(0, start) + tag.tag + text.substring(end);
++                          setText(newText);
++                          setTimeout(() => {
++                            textareaRef.current?.focus();
++                            textareaRef.current?.setSelectionRange(start + tag.tag.length, start + tag.tag.length);
++                          }, 10);
++                        } else {
++                          setText(text + " " + tag.tag);
++                        }
++                      }}
++                      sx={{ fontSize: '0.7rem', cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
++                    />
++                  ))}
++                  <Tooltip title="نکاتی درباره ساختاربندی متن برای هوش مصنوعی (مثل استفاده از تگ‌ها و تعیین گوینده). کلیک کنید تا راهنمای کامل را ببینید.">
++                    <Chip 
++                      label="راهنمای ساختار متن"
++                      size="small"
++                      color="primary"
++                      variant="outlined"
++                      onClick={() => window.open('https://ai.google.dev/gemini-api/docs/speech-generation#prompt-structure', '_blank')}
++                      sx={{ fontSize: '0.7rem', cursor: 'pointer', fontWeight: 'bold' }}
++                    />
++                  </Tooltip>
++                </Box>
++
+                 {/* Main Textarea Area */}
+                 <Box sx={{ p: 3, position: 'relative' }}>

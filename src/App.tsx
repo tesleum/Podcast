@@ -17,7 +17,15 @@ import {
   Alert,
   Fade,
   Slider,
-  Drawer
+  Drawer,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Switch,
+  FormControlLabel,
+  TextField,
+  Autocomplete
 } from '@mui/material';
 import {
   KeyboardVoice as KeyboardVoiceIcon,
@@ -42,6 +50,7 @@ import {
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'motion/react';
 import * as d3 from 'd3';
+import { voices, audioTags } from './voices';
 
 // Interface for sentence tracking
 interface SentenceRange {
@@ -270,7 +279,9 @@ function VoiceWaveformD3({ analyser, isPlaying }: { analyser: AnalyserNode | nul
 interface HistoryItem {
   id?: number;
   text: string;
-  voice: 'female' | 'male';
+  voice: string;
+  isMultiSpeaker?: boolean;
+  speakers?: Array<{ speaker: string; voice: string }>;
   pcmData: Int16Array;
   duration: number;
   timestamp: number;
@@ -396,7 +407,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [voice, setVoice] = useState<'female' | 'male'>('female');
+  const [voice, setVoice] = useState<string>('Aoede');
+  const [isMultiSpeaker, setIsMultiSpeaker] = useState<boolean>(false);
+  const [speakers, setSpeakers] = useState<Array<{speaker: string, voice: string}>>([{speaker: 'گوینده ۱', voice: 'Aoede'}, {speaker: 'گوینده ۲', voice: 'Puck'}]);
+  
   const [rewriteTone, setRewriteTone] = useState<'informal' | 'formal' | 'promotional' | 'friendly'>('informal');
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [copied, setCopied] = useState(false);
@@ -671,7 +685,7 @@ export default function App() {
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voice })
+        body: JSON.stringify({ text, voice, isMultiSpeaker, speakers })
       });
 
       if (!response.ok) {
@@ -754,6 +768,8 @@ export default function App() {
         await saveHistoryItem({
           text,
           voice,
+          isMultiSpeaker,
+          speakers,
           pcmData: int16Array,
           duration,
           timestamp: Date.now()
@@ -816,6 +832,10 @@ export default function App() {
     setError(null);
     setText(item.text);
     setVoice(item.voice);
+    setIsMultiSpeaker(item.isMultiSpeaker || false);
+    if (item.speakers) {
+      setSpeakers(item.speakers);
+    }
     setRawPcmData(item.pcmData);
     setGeneratedText(item.text);
     setAudioDuration(item.duration);
@@ -1276,6 +1296,40 @@ export default function App() {
                 </Box>
 
                 {/* Main Textarea Area */}
+                <Box sx={{ px: 3, pt: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {audioTags.map(tag => (
+                    <Chip 
+                      key={tag.tag}
+                      label={tag.label}
+                      size="small"
+                      variant="outlined"
+                      onClick={() => {
+                        if (textareaRef.current) {
+                          const start = textareaRef.current.selectionStart;
+                          const end = textareaRef.current.selectionEnd;
+                          const newText = text.substring(0, start) + tag.tag + text.substring(end);
+                          setText(newText);
+                          setTimeout(() => {
+                            textareaRef.current?.focus();
+                            textareaRef.current?.setSelectionRange(start + tag.tag.length, start + tag.tag.length);
+                          }, 10);
+                        } else {
+                          setText(text + " " + tag.tag);
+                        }
+                      }}
+                      sx={{ fontSize: '0.7rem', cursor: 'pointer', '&:hover': { backgroundColor: 'primary.main', color: 'white' } }}
+                    />
+                  ))}
+                  <Tooltip title="نکاتی درباره ساختاربندی متن (استفاده از تگ‌ها و دیالوگ‌ها). کلیک کنید تا راهنمای کامل را ببینید.">
+                    <Chip 
+                      label="راهنمای ساختار متن"
+                      size="small"
+                      color="primary"
+                      onClick={() => window.open('https://ai.google.dev/gemini-api/docs/speech-generation#prompt-structure', '_blank')}
+                      sx={{ fontSize: '0.7rem', cursor: 'pointer', fontWeight: 800 }}
+                    />
+                  </Tooltip>
+                </Box>
                 <Box sx={{ p: 3, position: 'relative' }}>
                   <textarea
                     ref={textareaRef}
@@ -1382,61 +1436,92 @@ export default function App() {
                   
                   {/* Speaker (Voice) Selector Section */}
                   <Box sx={{ mb: 4 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                      <SettingsVoiceIcon sx={{ fontSize: '1.2rem', color: '#f59e0b' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                        انتخاب صدای گوینده (صدا پیشه)
-                      </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <SettingsVoiceIcon sx={{ fontSize: '1.2rem', color: '#f59e0b' }} />
+                        <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                          انتخاب صدای گوینده
+                        </Typography>
+                      </Box>
+                      <FormControlLabel
+                        control={<Switch size="small" checked={isMultiSpeaker} onChange={(e) => setIsMultiSpeaker(e.target.checked)} color="primary" />}
+                        label={<Typography variant="caption" sx={{ fontWeight: 700 }}>چند گوینده</Typography>}
+                      />
                     </Box>
 
-                    {/* Styled Pill Segmented Switcher for Voice Choice */}
-                    <Box 
-                      sx={{ 
-                        display: 'flex', 
-                        p: 0.6, 
-                        borderRadius: '9999px', 
-                        border: '1px solid', 
-                        borderColor: 'divider',
-                        backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)'
-                      }}
-                    >
-                      <Button
-                        variant={voice === 'female' ? 'contained' : 'text'}
-                        onClick={() => setVoice('female')}
-                        fullWidth
-                        sx={{
-                          py: 1,
-                          fontSize: '0.78rem',
-                          borderRadius: '9999px',
-                          color: voice === 'female' ? (isDarkMode ? '#0c0a09' : '#ffffff') : 'text.secondary',
-                          backgroundColor: voice === 'female' ? '#f59e0b' : 'transparent',
-                          '&:hover': {
-                            backgroundColor: voice === 'female' ? '#d97706' : 'rgba(255, 255, 255, 0.05)',
-                          },
-                          fontWeight: 800
-                        }}
-                      >
-                        زن ایرانی (طبیعی)
-                      </Button>
-                      <Button
-                        variant={voice === 'male' ? 'contained' : 'text'}
-                        onClick={() => setVoice('male')}
-                        fullWidth
-                        sx={{
-                          py: 1,
-                          fontSize: '0.78rem',
-                          borderRadius: '9999px',
-                          color: voice === 'male' ? (isDarkMode ? '#0c0a09' : '#ffffff') : 'text.secondary',
-                          backgroundColor: voice === 'male' ? '#f59e0b' : 'transparent',
-                          '&:hover': {
-                            backgroundColor: voice === 'male' ? '#d97706' : 'rgba(255, 255, 255, 0.05)',
-                          },
-                          fontWeight: 800
-                        }}
-                      >
-                        مرد ایرانی (طبیعی)
-                      </Button>
-                    </Box>
+                    {isMultiSpeaker ? (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, mb: -1 }}>
+                          در متن خود از فرمت <b>"نام گوینده: متن"</b> استفاده کنید (مثلا: <b>گوینده ۱: سلام</b>).
+                        </Typography>
+                        {speakers.map((spk, idx) => (
+                          <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <TextField
+                              size="small"
+                              variant="outlined"
+                              value={spk.speaker}
+                              onChange={(e) => {
+                                const newSpk = [...speakers];
+                                newSpk[idx].speaker = e.target.value;
+                                setSpeakers(newSpk);
+                              }}
+                              sx={{ flex: 1, '& .MuiInputBase-input': { fontSize: '0.8rem', fontWeight: 600, borderRadius: '8px' } }}
+                            />
+                            <FormControl size="small" sx={{ flex: 2 }}>
+                              <Select
+                                value={spk.voice}
+                                onChange={(e) => {
+                                  const newSpk = [...speakers];
+                                  newSpk[idx].voice = e.target.value as string;
+                                  setSpeakers(newSpk);
+                                }}
+                                sx={{ fontSize: '0.8rem', fontWeight: 600, borderRadius: '8px' }}
+                              >
+                                {voices.map(v => (
+                                  <MenuItem key={v.id} value={v.id} sx={{ fontSize: '0.8rem' }}>{v.name}</MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            <IconButton 
+                              size="small" 
+                              onClick={() => setSpeakers(speakers.filter((_, i) => i !== idx))}
+                              disabled={speakers.length <= 1}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ))}
+                        <Button 
+                          variant="outlined" 
+                          size="small" 
+                          onClick={() => setSpeakers([...speakers, { speaker: `گوینده ${speakers.length + 1}`, voice: 'Aoede' }])}
+                          sx={{ borderRadius: '8px', py: 0.5, fontWeight: 700, fontSize: '0.75rem' }}
+                        >
+                          + افزودن گوینده
+                        </Button>
+                      </Box>
+                    ) : (
+                      <FormControl fullWidth size="small">
+                        <Select
+                          value={voice}
+                          onChange={(e) => setVoice(e.target.value as string)}
+                          sx={{
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            borderRadius: '12px',
+                            backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)',
+                            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' }
+                          }}
+                        >
+                          {voices.map(v => (
+                            <MenuItem key={v.id} value={v.id} sx={{ fontSize: '0.85rem', fontWeight: 600, py: 1 }}>
+                              {v.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    )}
                   </Box>
 
                   {/* Playback Speed Setting Section */}
@@ -1828,7 +1913,7 @@ export default function App() {
                   {isLoading ? 'در حال تولید صوتی...' : isPlaying ? 'در حال پخش...' : 'آماده خواندن'}
                 </Typography>
                 <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary', fontWeight: 600 }}>
-                  {voice === 'female' ? 'زن ایرانی' : 'مرد ایرانی'} • {playbackSpeed}x
+                  {isMultiSpeaker ? 'چند گوینده' : voices.find(v => v.id === voice)?.name?.split(' ')[0] || voice} • {playbackSpeed}x
                 </Typography>
               </Box>
             </Box>
@@ -1990,13 +2075,13 @@ export default function App() {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Chip
-                        label={item.voice === 'female' ? 'زن' : 'مرد'}
+                        label={item.isMultiSpeaker ? 'چند گوینده' : (voices.find(v => v.id === item.voice)?.name?.split(' ')[0] || item.voice)}
                         size="small"
                         sx={{
                           height: 20,
                           fontSize: '0.65rem',
-                          backgroundColor: item.voice === 'female' ? 'rgba(236, 72, 153, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                          color: item.voice === 'female' ? '#ec4899' : '#3b82f6',
+                          backgroundColor: item.isMultiSpeaker ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                          color: item.isMultiSpeaker ? '#10b981' : '#3b82f6',
                           fontWeight: 800,
                         }}
                       />
