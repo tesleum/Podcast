@@ -389,6 +389,8 @@ export default function App() {
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [copied, setCopied] = useState(false);
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle');
+  const isFirstSave = useRef(true);
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
@@ -432,7 +434,21 @@ export default function App() {
   };
   
   useEffect(() => {
-    localStorage.setItem('solana-gold-script', text);
+    if (isFirstSave.current) {
+      isFirstSave.current = false;
+      return;
+    }
+
+    setSaveStatus('saving');
+
+    const handler = setTimeout(() => {
+      localStorage.setItem('solana-gold-script', text);
+      setSaveStatus('saved');
+    }, 5000);
+
+    return () => {
+      clearTimeout(handler);
+    };
   }, [text]);
 
   // Regenerate segments when text or audio duration changes
@@ -1463,13 +1479,42 @@ export default function App() {
                     alignItems: 'center'
                   }}
                 >
-                  <Box sx={{ display: 'flex', gap: 3 }}>
+                  <Box sx={{ display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
                     <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
                       تعداد کاراکتر: <Box component="span" sx={{ color: 'text.primary', fontWeight: 800 }}>{charCount}</Box>
                     </Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
                       تعداد کلمات: <Box component="span" sx={{ color: 'text.primary', fontWeight: 800 }}>{wordCount}</Box>
                     </Typography>
+                    {saveStatus !== 'idle' && (
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: saveStatus === 'saving' ? '#f59e0b' : '#10b981', 
+                          fontWeight: 700, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 0.6,
+                          animation: saveStatus === 'saving' ? 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none',
+                          '@keyframes pulse': {
+                            '0%, 100%': { opacity: 1 },
+                            '50%': { opacity: .5 }
+                          }
+                        }}
+                      >
+                        <Box 
+                          component="span" 
+                          sx={{ 
+                            width: 6, 
+                            height: 6, 
+                            borderRadius: '50%', 
+                            backgroundColor: saveStatus === 'saving' ? '#f59e0b' : '#10b981',
+                            display: 'inline-block'
+                          }} 
+                        />
+                        {saveStatus === 'saving' ? 'در حال ذخیره‌سازی خودکار...' : 'پیش‌نویس ذخیره شد'}
+                      </Typography>
+                    )}
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                     <InfoIcon sx={{ fontSize: '0.95rem', color: 'text.secondary' }} />
