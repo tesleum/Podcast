@@ -38,7 +38,7 @@ async function startServer() {
           }
         });
         
-        const base64Audio = interaction.outputAudio?.data || interaction.output_audio?.data;
+        const base64Audio = interaction.output_audio?.data;
         if (base64Audio) {
           res.json({ audio: base64Audio });
         } else {
@@ -47,30 +47,41 @@ async function startServer() {
       } else {
         const promptText = `Say the following Persian text naturally and normally:\n\n${text}`;
         
-        const response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-tts-preview",
-          contents: [{ parts: [{ text: promptText }] }],
-          config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: voice },
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-3.1-flash-tts-preview",
+            contents: [{ parts: [{ text: promptText }] }],
+            config: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName: voice },
+                },
               },
             },
-          },
-        });
+          });
 
-        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        
-        if (base64Audio) {
-          res.json({ audio: base64Audio });
-        } else {
-          res.status(500).json({ error: "Failed to generate audio" });
+          const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+          
+          if (base64Audio) {
+            res.json({ audio: base64Audio });
+          } else {
+            res.status(500).json({ error: "Failed to generate audio" });
+          }
+        } catch (e: any) {
+          if (e.status === 429 || (e.message && e.message.includes('429'))) {
+            return res.status(429).json({ error: "سهمیه تولید صدای شما برای امروز به پایان رسیده است. لطفاً فردا دوباره تلاش کنید یا ارتقا دهید." });
+          }
+          throw e;
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("TTS generation error:", error);
-      res.status(500).json({ error: "An error occurred during TTS generation" });
+      if (error.status === 429 || (error.message && error.message.includes('429'))) {
+        res.status(429).json({ error: "سهمیه تولید صدای شما برای امروز به پایان رسیده است. لطفاً فردا دوباره تلاش کنید یا اکانت خود را ارتقا دهید." });
+      } else {
+        res.status(500).json({ error: "خطا در تولید صدا. لطفاً دوباره تلاش کنید." });
+      }
     }
   });
 

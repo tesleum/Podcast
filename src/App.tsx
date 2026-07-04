@@ -688,11 +688,11 @@ export default function App() {
         body: JSON.stringify({ text, voice, isMultiSpeaker, speakers })
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        throw new Error('خطا در برقراری ارتباط با سرویس تولید صدا. مجدداً بررسی کنید.');
+        throw new Error(data.error || 'خطا در برقراری ارتباط با سرویس تولید صدا. مجدداً بررسی کنید.');
       }
 
-      const data = await response.json();
       if (!data.audio) {
         throw new Error('فایل صوتی یافت نشد.');
       }
@@ -1477,9 +1477,13 @@ export default function App() {
                                 }}
                                 sx={{ fontSize: '0.8rem', fontWeight: 600, borderRadius: '8px' }}
                               >
-                                {voices.map(v => (
-                                  <MenuItem key={v.id} value={v.id} sx={{ fontSize: '0.8rem' }}>{v.name}</MenuItem>
-                                ))}
+                                <MenuItem value="Aoede">زن (طبیعی)</MenuItem>
+                                <MenuItem value="Kore">زن (قاطع)</MenuItem>
+                                <MenuItem value="Leda">زن (جوان)</MenuItem>
+                                <MenuItem value="Puck">مرد (طبیعی)</MenuItem>
+                                <MenuItem value="Charon">مرد (آگاهی‌بخش)</MenuItem>
+                                <MenuItem value="Fenrir">مرد (هیجان‌زده)</MenuItem>
+                                <MenuItem value="Orus">مرد (قاطع)</MenuItem>
                               </Select>
                             </FormControl>
                             <IconButton 
@@ -1501,26 +1505,53 @@ export default function App() {
                         </Button>
                       </Box>
                     ) : (
-                      <FormControl fullWidth size="small">
-                        <Select
-                          value={voice}
-                          onChange={(e) => setVoice(e.target.value as string)}
+                      <Box 
+                        sx={{ 
+                          display: 'flex', 
+                          p: 0.6, 
+                          borderRadius: '9999px', 
+                          border: '1px solid', 
+                          borderColor: 'divider',
+                          backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)'
+                        }}
+                      >
+                        <Button
+                          variant={voice === 'Aoede' ? 'contained' : 'text'}
+                          onClick={() => setVoice('Aoede')}
+                          fullWidth
                           sx={{
-                            fontSize: '0.85rem',
-                            fontWeight: 700,
-                            borderRadius: '12px',
-                            backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)',
-                            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
-                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' }
+                            py: 1,
+                            fontSize: '0.78rem',
+                            borderRadius: '9999px',
+                            color: voice === 'Aoede' ? (isDarkMode ? '#0c0a09' : '#ffffff') : 'text.secondary',
+                            backgroundColor: voice === 'Aoede' ? '#f59e0b' : 'transparent',
+                            '&:hover': {
+                              backgroundColor: voice === 'Aoede' ? '#d97706' : 'rgba(255, 255, 255, 0.05)',
+                            },
+                            fontWeight: 800
                           }}
                         >
-                          {voices.map(v => (
-                            <MenuItem key={v.id} value={v.id} sx={{ fontSize: '0.85rem', fontWeight: 600, py: 1 }}>
-                              {v.name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                          زن ایرانی (طبیعی)
+                        </Button>
+                        <Button
+                          variant={voice === 'Puck' ? 'contained' : 'text'}
+                          onClick={() => setVoice('Puck')}
+                          fullWidth
+                          sx={{
+                            py: 1,
+                            fontSize: '0.78rem',
+                            borderRadius: '9999px',
+                            color: voice === 'Puck' ? (isDarkMode ? '#0c0a09' : '#ffffff') : 'text.secondary',
+                            backgroundColor: voice === 'Puck' ? '#f59e0b' : 'transparent',
+                            '&:hover': {
+                              backgroundColor: voice === 'Puck' ? '#d97706' : 'rgba(255, 255, 255, 0.05)',
+                            },
+                            fontWeight: 800
+                          }}
+                        >
+                          مرد ایرانی (طبیعی)
+                        </Button>
+                      </Box>
                     )}
                   </Box>
 
