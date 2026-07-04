@@ -53,92 +53,66 @@ import * as d3 from 'd3';
 import { voices, audioTags } from './voices';
 
 // Interface for sentence tracking
-interface SentenceRange {
+interface TextSegment {
   text: string;
   startIndex: number;
   endIndex: number;
-  wordCount: number;
   charCount: number;
+  isWhitespace: boolean;
   estimatedDuration: number;
   estimatedStart: number;
   estimatedEnd: number;
 }
 
-// Splits Persian text into sentences while tracking their start/end indices and estimating speak times
-function parseSentences(text: string, totalDuration: number): SentenceRange[] {
+// Splits text into words and whitespaces for real-time highlighting
+function parseWords(text: string, totalDuration: number): TextSegment[] {
   if (!text.trim()) return [];
   
-  // Regex to split by Persian/English sentence punctuation while retaining the separator
-  const matches = text.match(/[^.!?؟\n؛;]+[.!?؟\n؛;]*/g) || [text];
+  const matches = text.match(/\S+|\s+/g) || [];
   
-  const sentences: SentenceRange[] = [];
   let currentIndex = 0;
   let totalChars = 0;
   
   const parsedSegments = matches.map((segment) => {
-    const start = text.indexOf(segment, currentIndex);
+    const start = currentIndex;
     const end = start + segment.length;
     currentIndex = end;
     
-    const trimmed = segment.trim();
-    const charCount = trimmed.length;
-    const wordCount = trimmed === '' ? 0 : trimmed.split(/\s+/).length;
-    
+    const isWhitespace = /^\s+$/.test(segment);
+    const charCount = isWhitespace ? 0 : segment.length;
     totalChars += charCount;
     
     return {
       text: segment,
       startIndex: start,
       endIndex: end,
-      wordCount,
       charCount,
+      isWhitespace
     };
-  }).filter(s => s.charCount > 0);
+  });
   
   if (totalChars === 0) return [];
   
   let accumulatedTime = 0;
-  const result: SentenceRange[] = parsedSegments.map((seg) => {
+  const result: TextSegment[] = parsedSegments.map((seg) => {
     const proportion = seg.charCount / totalChars;
     const estimatedDuration = proportion * totalDuration;
     const estimatedStart = accumulatedTime;
     const estimatedEnd = accumulatedTime + estimatedDuration;
-    accumulatedTime = estimatedEnd;
+    
+    if (seg.charCount > 0) {
+      accumulatedTime = estimatedEnd;
+    }
     
     return {
       ...seg,
-      estimatedDuration,
-      estimatedStart,
-      estimatedEnd,
+      estimatedDuration: seg.charCount > 0 ? estimatedDuration : 0,
+      estimatedStart: seg.charCount > 0 ? estimatedStart : 0,
+      estimatedEnd: seg.charCount > 0 ? estimatedEnd : 0,
     };
   });
   
   return result;
-}
-
-// Helper to estimate scroll top of a character index in textarea
-function estimateScrollTopForIndex(textarea: HTMLTextAreaElement, index: number): number {
-  const textBefore = textarea.value.substring(0, index);
-  const fontSize = parseFloat(window.getComputedStyle(textarea).fontSize) || 16;
-  const lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight) || (fontSize * 1.8);
-  const clientWidth = textarea.clientWidth || 600;
-  
-  const charWidth = fontSize * 0.55;
-  const charsPerLine = Math.max(20, Math.floor(clientWidth / charWidth));
-  
-  const paragraphs = textBefore.split('\n');
-  let totalLines = 0;
-  for (let i = 0; i < paragraphs.length; i++) {
-    const pLen = paragraphs[i].length;
-    if (i === paragraphs.length - 1) {
-      totalLines += Math.ceil(pLen / charsPerLine);
-    } else {
-      totalLines += Math.max(1, Math.ceil(pLen / charsPerLine));
-    }
-  }
-  
-  const targetScrollTop = (totalLines - 3) * lineHeight;
-  return Math.max(0, targetScrollTop);
 }
 
 // Helper to format seconds to time string (m:ss.x)
@@ -435,18 +409,19 @@ export default function App() {
 
   // Sentence and Audio tracking states
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
-  const [sentences, setSentences] = useState<SentenceRange[]>([]);
-  const [activeSentenceIndex, setActiveSentenceIndex] = useState<number | null>(null);
+  const [segments, setSegments] = useState<TextSegment[]>([]);
+  const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
 
   // Synchronization refs to avoid closure stale values in high-speed requestAnimationFrame loop
   const isPlayingRef = useRef(false);
-  const sentencesRef = useRef<SentenceRange[]>([]);
+  const segmentsRef = useRef<TextSegment[]>([]);
   const playbackSpeedRef = useRef(1.0);
-  const activeSentenceIndexRef = useRef<number | null>(null);
+  const activeWordIndexRef = useRef<number | null>(null);
   const playOffsetRef = useRef(0);
   const playbackStartTimeRef = useRef(0);
   const animationFrameRef = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
 
   const handleTrimChange = (event: Event | React.SyntheticEvent | any, newValue: number | number[]) => {
     setTrimRange(newValue as [number, number]);
@@ -459,16 +434,16 @@ export default function App() {
     localStorage.setItem('solana-gold-script', text);
   }, [text]);
 
-  // Regenerate sentences when text or audio duration changes
+  // Regenerate segments when text or audio duration changes
   useEffect(() => {
     if (text && audioDuration > 0) {
-      const parsed = parseSentences(text, audioDuration);
-      setSentences(parsed);
+      const parsed = parseWords(text, audioDuration);
+      setSegments(parsed);
     } else {
-      setSentences([]);
+      setSegments([]);
     }
-    setActiveSentenceIndex(null);
-    activeSentenceIndexRef.current = null;
+    setActiveWordIndex(null);
+    activeWordIndexRef.current = null;
   }, [text, audioDuration]);
 
   // Keep references synced
@@ -477,29 +452,27 @@ export default function App() {
   }, [isPlaying]);
 
   useEffect(() => {
-    sentencesRef.current = sentences;
-  }, [sentences]);
+    segmentsRef.current = segments;
+  }, [segments]);
 
   useEffect(() => {
     playbackSpeedRef.current = playbackSpeed;
   }, [playbackSpeed]);
 
-  // Smooth scroll textarea to the active sentence being spoken
+  // Smooth scroll overlay to the active word being spoken
   useEffect(() => {
-    if (activeSentenceIndex !== null && sentences[activeSentenceIndex] && textareaRef.current) {
-      const sentence = sentences[activeSentenceIndex];
-      
-      // Select text in editor to visually highlight it
-      textareaRef.current.setSelectionRange(sentence.startIndex, sentence.endIndex);
-      
-      // Calculate smooth scroll offset
-      const targetScroll = estimateScrollTopForIndex(textareaRef.current, sentence.startIndex);
-      textareaRef.current.scrollTo({
-        top: targetScroll,
-        behavior: 'smooth'
-      });
+    if (activeWordIndex !== null && isPlaying) {
+      const span = document.getElementById(`word-span-${activeWordIndex}`);
+      if (span && overlayRef.current) {
+        const container = overlayRef.current;
+        const targetScroll = span.offsetTop - container.clientHeight / 2 + span.clientHeight / 2;
+        container.scrollTo({
+          top: Math.max(0, targetScroll),
+          behavior: 'smooth'
+        });
+      }
     }
-  }, [activeSentenceIndex, sentences]);
+  }, [activeWordIndex, isPlaying]);
 
   // RequestAnimationFrame loop for timing tracking
   const startProgressLoop = (offset: number) => {
@@ -522,15 +495,15 @@ export default function App() {
       const elapsed = (audioContextRef.current.currentTime - playbackStartTimeRef.current) * playbackSpeedRef.current;
       const currentPosition = playOffsetRef.current + elapsed;
       
-      const list = sentencesRef.current;
+      const list = segmentsRef.current;
       if (list.length > 0) {
         const activeIndex = list.findIndex(
           s => currentPosition >= s.estimatedStart && currentPosition < s.estimatedEnd
         );
         
-        if (activeIndex !== -1 && activeIndex !== activeSentenceIndexRef.current) {
-          activeSentenceIndexRef.current = activeIndex;
-          setActiveSentenceIndex(activeIndex);
+        if (activeIndex !== -1 && activeIndex !== activeWordIndexRef.current) {
+          activeWordIndexRef.current = activeIndex;
+          setActiveWordIndex(activeIndex);
         }
       }
       
@@ -565,8 +538,8 @@ export default function App() {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
-    activeSentenceIndexRef.current = null;
-    setActiveSentenceIndex(null);
+    activeWordIndexRef.current = null;
+    setActiveWordIndex(null);
 
     if (sourceNodeRef.current) {
       try {
@@ -649,8 +622,8 @@ export default function App() {
         
         sourceNode.onended = () => {
           setIsPlaying(false);
-          activeSentenceIndexRef.current = null;
-          setActiveSentenceIndex(null);
+          activeWordIndexRef.current = null;
+          setActiveWordIndex(null);
           if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
             animationFrameRef.current = null;
@@ -664,7 +637,7 @@ export default function App() {
         const playDuration = trimRange[1] - trimRange[0];
         sourceNode.start(0, playOffset, playDuration);
         
-        // Start tracking time to match spoken sentences
+        // Start tracking time to match spoken segments
         startProgressLoop(playOffset);
       } catch (err: any) {
         console.error(err);
@@ -746,8 +719,8 @@ export default function App() {
       
       sourceNode.onended = () => {
         setIsPlaying(false);
-        activeSentenceIndexRef.current = null;
-        setActiveSentenceIndex(null);
+        activeWordIndexRef.current = null;
+        setActiveWordIndex(null);
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
           animationFrameRef.current = null;
@@ -760,7 +733,7 @@ export default function App() {
       sourceNode.start(0, 0, duration);
       setIsPlaying(true);
       
-      // Start tracking time to match spoken sentences
+      // Start tracking time to match spoken segments
       startProgressLoop(0);
 
       // Save to IndexedDB history
@@ -878,8 +851,8 @@ export default function App() {
         
         sourceNode.onended = () => {
           setIsPlaying(false);
-          activeSentenceIndexRef.current = null;
-          setActiveSentenceIndex(null);
+          activeWordIndexRef.current = null;
+          setActiveWordIndex(null);
           if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
             animationFrameRef.current = null;
@@ -889,9 +862,9 @@ export default function App() {
         sourceNodeRef.current = sourceNode;
         sourceNode.start(0, 0, item.duration);
         
-        const parsed = parseSentences(item.text, item.duration);
-        setSentences(parsed);
-        sentencesRef.current = parsed;
+        const parsed = parseWords(item.text, item.duration);
+        setSegments(parsed);
+        segmentsRef.current = parsed;
         startProgressLoop(0);
       } catch (err: any) {
         console.error(err);
@@ -1330,71 +1303,62 @@ export default function App() {
                     />
                   </Tooltip>
                 </Box>
-                <Box sx={{ p: 3, position: 'relative' }}>
-                  <textarea
-                    ref={textareaRef}
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    dir="rtl"
-                    placeholder="متن خود را اینجا بنویسید یا بچسبانید تا با صدای گوینده طبیعی شبیه‌سازی شود..."
-                    style={{
-                      width: '100%',
-                      minHeight: '360px',
-                      border: 'none',
-                      outline: 'none',
-                      resize: 'none',
-                      fontFamily: 'Vazirmatn, sans-serif',
-                      fontSize: '1rem',
-                      lineHeight: 1.8,
-                      backgroundColor: 'transparent',
-                      color: isDarkMode ? '#f4f4f5' : '#0f172a',
-                    }}
-                  />
-
-                  {/* Gorgeous Subtitles Strip Overlay inside Textarea Container */}
-                  <AnimatePresence>
-                    {isPlaying && activeSentenceIndex !== null && sentences[activeSentenceIndex] && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 15 }}
-                        style={{
-                          position: 'absolute',
-                          bottom: '16px',
-                          left: '16px',
-                          right: '16px',
-                          zIndex: 10,
-                          pointerEvents: 'none'
-                        }}
-                      >
-                        <Paper
-                          elevation={3}
-                          sx={{
-                            p: 2,
-                            borderRadius: '16px',
-                            backgroundColor: isDarkMode ? 'rgba(24, 24, 27, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-                            border: '1px solid',
-                            borderColor: 'primary.main',
-                            boxShadow: '0 10px 25px -5px rgba(245, 158, 11, 0.15)',
-                            backdropFilter: 'blur(12px)',
+                <Box sx={{ p: 3, position: 'relative', minHeight: '360px' }}>
+                  {!isPlaying ? (
+                    <textarea
+                      ref={textareaRef}
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      dir="rtl"
+                      placeholder="متن خود را اینجا بنویسید یا بچسبانید تا با صدای گوینده طبیعی شبیه‌سازی شود..."
+                      style={{
+                        width: '100%',
+                        minHeight: '360px',
+                        border: 'none',
+                        outline: 'none',
+                        resize: 'none',
+                        fontFamily: 'Vazirmatn, sans-serif',
+                        fontSize: '1rem',
+                        lineHeight: 1.8,
+                        backgroundColor: 'transparent',
+                        color: isDarkMode ? '#f4f4f5' : '#0f172a',
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      ref={overlayRef}
+                      sx={{
+                        width: '100%',
+                        height: '360px',
+                        fontFamily: 'Vazirmatn, sans-serif',
+                        fontSize: '1rem',
+                        lineHeight: 1.8,
+                        color: isDarkMode ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
+                        whiteSpace: 'pre-wrap',
+                        overflowY: 'auto'
+                      }}
+                    >
+                      {segments.map((seg, idx) => (
+                        <span
+                          key={idx}
+                          id={`word-span-${idx}`}
+                          style={{
+                            color: !seg.isWhitespace && activeWordIndex === idx 
+                              ? (isDarkMode ? '#0c0a09' : '#ffffff') 
+                              : (isDarkMode ? '#f4f4f5' : '#0f172a'),
+                            backgroundColor: !seg.isWhitespace && activeWordIndex === idx 
+                              ? '#f59e0b' 
+                              : 'transparent',
+                            borderRadius: '4px',
+                            transition: 'all 0.1s ease',
+                            display: 'inline'
                           }}
                         >
-                          <Typography 
-                            variant="body1" 
-                            sx={{ 
-                              fontWeight: 800, 
-                              textAlign: 'center', 
-                              color: '#f59e0b',
-                              fontSize: '0.98rem',
-                              lineHeight: 1.6
-                            }}
-                          >
-                            {sentences[activeSentenceIndex].text}
-                          </Typography>
-                        </Paper>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                          {seg.text}
+                        </span>
+                      ))}
+                    </Box>
+                  )}
                 </Box>
 
                 {/* Footer Statistics */}
@@ -1434,6 +1398,53 @@ export default function App() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <Card sx={{ p: 3 }}>
                   
+                  {/* Presets Section */}
+                  <Box sx={{ mb: 4 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <AutoAwesomeIcon sx={{ fontSize: '1.2rem', color: '#f59e0b' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                        حالت‌های آماده
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Chip 
+                        label="دکلمه" 
+                        onClick={() => {
+                          setIsMultiSpeaker(false);
+                          setVoice('Charon');
+                          setPlaybackSpeed(0.8);
+                          setRewriteTone('formal');
+                        }} 
+                        variant="outlined" 
+                        sx={{ fontWeight: 700 }} 
+                      />
+                      <Chip 
+                        label="اخبار" 
+                        onClick={() => {
+                          setIsMultiSpeaker(false);
+                          setVoice('Orus');
+                          setPlaybackSpeed(1.1);
+                          setRewriteTone('formal');
+                        }} 
+                        variant="outlined" 
+                        sx={{ fontWeight: 700 }} 
+                      />
+                      <Chip 
+                        label="دوستانه" 
+                        onClick={() => {
+                          setIsMultiSpeaker(false);
+                          setVoice('Aoede');
+                          setPlaybackSpeed(1.0);
+                          setRewriteTone('friendly');
+                        }} 
+                        variant="outlined" 
+                        sx={{ fontWeight: 700 }} 
+                      />
+                    </Box>
+                  </Box>
+                  
+                  <Divider sx={{ mb: 3 }} />
+
                   {/* Speaker (Voice) Selector Section */}
                   <Box sx={{ mb: 4 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
