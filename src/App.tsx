@@ -1477,13 +1477,9 @@ export default function App() {
                                 }}
                                 sx={{ fontSize: '0.8rem', fontWeight: 600, borderRadius: '8px' }}
                               >
-                                <MenuItem value="Aoede">زن (طبیعی)</MenuItem>
-                                <MenuItem value="Kore">زن (قاطع)</MenuItem>
-                                <MenuItem value="Leda">زن (جوان)</MenuItem>
-                                <MenuItem value="Puck">مرد (طبیعی)</MenuItem>
-                                <MenuItem value="Charon">مرد (آگاهی‌بخش)</MenuItem>
-                                <MenuItem value="Fenrir">مرد (هیجان‌زده)</MenuItem>
-                                <MenuItem value="Orus">مرد (قاطع)</MenuItem>
+                                {voices.map(v => (
+                                  <MenuItem key={v.id} value={v.id} sx={{ fontSize: '0.8rem' }}>{v.name}</MenuItem>
+                                ))}
                               </Select>
                             </FormControl>
                             <IconButton 
@@ -1505,53 +1501,26 @@ export default function App() {
                         </Button>
                       </Box>
                     ) : (
-                      <Box 
-                        sx={{ 
-                          display: 'flex', 
-                          p: 0.6, 
-                          borderRadius: '9999px', 
-                          border: '1px solid', 
-                          borderColor: 'divider',
-                          backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)'
-                        }}
-                      >
-                        <Button
-                          variant={voice === 'Aoede' ? 'contained' : 'text'}
-                          onClick={() => setVoice('Aoede')}
-                          fullWidth
+                      <FormControl fullWidth size="small">
+                        <Select
+                          value={voice}
+                          onChange={(e) => setVoice(e.target.value as string)}
                           sx={{
-                            py: 1,
-                            fontSize: '0.78rem',
-                            borderRadius: '9999px',
-                            color: voice === 'Aoede' ? (isDarkMode ? '#0c0a09' : '#ffffff') : 'text.secondary',
-                            backgroundColor: voice === 'Aoede' ? '#f59e0b' : 'transparent',
-                            '&:hover': {
-                              backgroundColor: voice === 'Aoede' ? '#d97706' : 'rgba(255, 255, 255, 0.05)',
-                            },
-                            fontWeight: 800
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            borderRadius: '12px',
+                            backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)',
+                            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' }
                           }}
                         >
-                          زن ایرانی (طبیعی)
-                        </Button>
-                        <Button
-                          variant={voice === 'Puck' ? 'contained' : 'text'}
-                          onClick={() => setVoice('Puck')}
-                          fullWidth
-                          sx={{
-                            py: 1,
-                            fontSize: '0.78rem',
-                            borderRadius: '9999px',
-                            color: voice === 'Puck' ? (isDarkMode ? '#0c0a09' : '#ffffff') : 'text.secondary',
-                            backgroundColor: voice === 'Puck' ? '#f59e0b' : 'transparent',
-                            '&:hover': {
-                              backgroundColor: voice === 'Puck' ? '#d97706' : 'rgba(255, 255, 255, 0.05)',
-                            },
-                            fontWeight: 800
-                          }}
-                        >
-                          مرد ایرانی (طبیعی)
-                        </Button>
-                      </Box>
+                          {voices.map(v => (
+                            <MenuItem key={v.id} value={v.id} sx={{ fontSize: '0.85rem', fontWeight: 600, py: 1 }}>
+                              {v.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
                     )}
                   </Box>
 
@@ -1944,7 +1913,7 @@ export default function App() {
                   {isLoading ? 'در حال تولید صوتی...' : isPlaying ? 'در حال پخش...' : 'آماده خواندن'}
                 </Typography>
                 <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary', fontWeight: 600 }}>
-                  {isMultiSpeaker ? 'چند گوینده' : voices.find(v => v.id === voice)?.name?.split(' ')[0] || voice} • {playbackSpeed}x
+                  {isMultiSpeaker ? 'چند گوینده' : voices.find(v => v.id === voice)?.name || voice} • {playbackSpeed}x
                 </Typography>
               </Box>
             </Box>
@@ -2106,13 +2075,21 @@ export default function App() {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Chip
-                        label={item.isMultiSpeaker ? 'چند گوینده' : (voices.find(v => v.id === item.voice)?.name?.split(' ')[0] || item.voice)}
+                        label={item.isMultiSpeaker ? 'چند گوینده' : (voices.find(v => v.id === item.voice)?.name || item.voice)}
                         size="small"
                         sx={{
                           height: 20,
                           fontSize: '0.65rem',
-                          backgroundColor: item.isMultiSpeaker ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                          color: item.isMultiSpeaker ? '#10b981' : '#3b82f6',
+                          backgroundColor: item.isMultiSpeaker 
+                            ? 'rgba(16, 185, 129, 0.1)' 
+                            : voices.find(v => v.id === item.voice)?.gender === 'female' 
+                              ? 'rgba(236, 72, 153, 0.1)' 
+                              : 'rgba(59, 130, 246, 0.1)',
+                          color: item.isMultiSpeaker 
+                            ? '#10b981' 
+                            : voices.find(v => v.id === item.voice)?.gender === 'female' 
+                              ? '#ec4899' 
+                              : '#3b82f6',
                           fontWeight: 800,
                         }}
                       />

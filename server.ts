@@ -29,23 +29,31 @@ async function startServer() {
       }
 
       if (isMultiSpeaker) {
-        const interaction = await (ai as any).interactions.create({
-          model: "gemini-3.1-flash-tts-preview",
-          input: text,
-          response_format: { type: 'audio' },
-          generation_config: {
-            speech_config: speakers
+        const promptText = `Speak this exact Persian conversation naturally and with perfect native Iranian pronunciation and accent:\n\n${text}`;
+        try {
+          const interaction = await (ai as any).interactions.create({
+            model: "gemini-3.1-flash-tts-preview",
+            input: promptText,
+            response_modalities: ['audio'],
+            generation_config: {
+              speech_config: speakers
+            }
+          });
+          
+          const base64Audio = interaction.output_audio?.data;
+          if (base64Audio) {
+            res.json({ audio: base64Audio });
+          } else {
+            res.status(500).json({ error: "Failed to generate multi-speaker audio" });
           }
-        });
-        
-        const base64Audio = interaction.output_audio?.data;
-        if (base64Audio) {
-          res.json({ audio: base64Audio });
-        } else {
-          res.status(500).json({ error: "Failed to generate multi-speaker audio" });
+        } catch (e: any) {
+          if (e.status === 429 || (e.message && e.message.includes('429'))) {
+            return res.status(429).json({ error: "سهمیه تولید صدای شما برای امروز به پایان رسیده است. لطفاً فردا دوباره تلاش کنید یا ارتقا دهید." });
+          }
+          throw e;
         }
       } else {
-        const promptText = `Say the following Persian text naturally and normally:\n\n${text}`;
+        const promptText = `Speak this exact Persian text naturally and with perfect native Iranian pronunciation and accent:\n\n${text}`;
         
         try {
           const response = await ai.models.generateContent({
