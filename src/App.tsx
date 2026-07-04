@@ -1637,7 +1637,13 @@ export default function App() {
                                     <span>{v.name}</span>
                                     <IconButton
                                       size="small"
-                                      onClick={(e) => playVoicePreview(v.id, e)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        playVoicePreview(v.id, e);
+                                      }}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onTouchStart={(e) => e.stopPropagation()}
                                       sx={{
                                         p: 0.2,
                                         color: previewingVoiceId === v.id ? 'error.main' : 'primary.main',
@@ -1703,7 +1709,13 @@ export default function App() {
                               <span>{v.name}</span>
                               <IconButton
                                 size="small"
-                                onClick={(e) => playVoicePreview(v.id, e)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  playVoicePreview(v.id, e);
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onTouchStart={(e) => e.stopPropagation()}
                                 sx={{
                                   p: 0.3,
                                   color: previewingVoiceId === v.id ? 'error.main' : 'primary.main',
